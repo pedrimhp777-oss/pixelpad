@@ -39,10 +39,12 @@ const udp = null;
 
 // ---------------- controle virtual (ViGEm) ----------------
 let pad = null;
+let padErro = null;
 try {
   pad = createPad(path.join(ROOT, 'native', 'ViGEmClient.dll'));
   logLine('ViGEm OK: controle Xbox 360 virtual criado');
 } catch (e) {
+  padErro = e.message;
   logLine('ViGEm indisponivel: ' + e.message);
   console.log('\n  [!] Nao consegui criar o controle virtual: ' + e.message);
   console.log('      O trackpad continua funcionando; o gamepad nao.\n');
@@ -513,6 +515,12 @@ b{color:#7db6ff}code{background:#111721;padding:4px 9px;border-radius:6px;font-s
 .card{border-top:1px solid #1e2836;padding-top:18px;max-width:420px;text-align:center;color:#8a94a3;font-size:13px;line-height:1.6}
 a{color:#7db6ff}</style></head><body>
 <h1>Aponte a camera do celular para o codigo</h1>
+${padErro ? `<div style="max-width:460px;text-align:center;background:#3a1d1d;border:1px solid #7d2b2b;color:#ffb4b4;padding:14px 16px;border-radius:10px;font-size:13px;line-height:1.6">
+  <b>O gamepad nao vai funcionar ainda.</b><br>
+  Falta o driver <b>ViGEmBus</b>, que cria o controle de Xbox virtual.<br>
+  <a href="https://github.com/nefarius/ViGEmBus/releases" style="color:#ffd0d0">Baixar o ViGEmBus</a>,\n  instalar, reiniciar o PC e abrir este atalho de novo.<br>
+  <span style="color:#c88">trackpad continua funcionando normalmente</span>
+</div>` : ''}
 <pre>${qr.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
 <p style="margin:0">mesmo Wi-Fi do PC &middot; <code>${alvo}</code></p>
 <div class="card">
@@ -603,6 +611,16 @@ function onSocket(ws, req) {
 new WebSocketServer({ server }).on('connection', onSocket);
 if (serverS) new WebSocketServer({ server: serverS }).on('connection', onSocket);
 if (serverS) serverS.listen(PORT_S, '0.0.0.0');
+
+server.on('error', e => {
+  if (e.code === 'EADDRINUSE') {
+    console.log('\n  O PixelPad ja esta rodando nesta maquina. Abra http://127.0.0.1:8080/pair\n');
+    process.exit(0);
+  }
+  logLine('server erro: ' + e.message);
+  console.error(e);
+  process.exit(1);
+});
 
 server.listen(PORT, '0.0.0.0', () => {
   const lan = lanIP();

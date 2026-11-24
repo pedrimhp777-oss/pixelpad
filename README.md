@@ -29,6 +29,19 @@ têm como competir com 30 cm de Wi-Fi.
 | Editar posição e tamanho de cada botão (salvo no celular) | `/game` → Editar |
 | Instalar como app na tela inicial | `/app` |
 
+## Instalação sem dor (Windows)
+
+Baixe o **PixelPad-Setup-x.y.z.exe** em [Releases](https://github.com/pedrimhp777-oss/pixelpad/releases),
+clique duas vezes, avançar, instalar. O instalador já traz o Node embutido: não precisa
+instalar Node, nem abrir terminal, nem instalar certificado.
+
+Ele cria o atalho, libera o firewall, pergunta se quer iniciar junto com o Windows e
+abre a página com o QR code no final.
+
+Prefere não instalar nada? Baixe o `.zip` portátil, descompacte e rode `PixelPad.vbs`.
+
+> O instalador usa o Node LTS oficial (licença MIT, incluída no pacote).
+
 ## Requisitos
 
 - **Windows 10/11** (o controle virtual usa XInput)
@@ -36,11 +49,17 @@ têm como competir com 30 cm de Wi-Fi.
 - Driver **[ViGEmBus](https://github.com/nefarius/ViGEmBus/releases)** instalado
   (uma vez, precisa de admin e talvez reiniciar). É o mesmo driver que DS4Windows usa.
 
-## Como rodar
+## Rodando pelo código (desenvolvimento)
 
 ```bash
 npm install
 npm start
+```
+
+Para gerar os pacotes distribuíveis:
+
+```bash
+npm run build
 ```
 
 O terminal mostra um **QR code**. Escaneie com o celular (mesma rede Wi-Fi) e pronto.

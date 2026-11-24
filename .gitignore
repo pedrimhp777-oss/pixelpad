@@ -7,3 +7,5 @@ data/
 Thumbs.db
 render/
 tv.mjs
+build/
+dist/
