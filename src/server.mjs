@@ -500,19 +500,28 @@ function handle(req, res) {
     const local = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
     if (!local) { res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('so local'); }
     const lan = lanIP();
-    const alvo = serverS ? `https://${lan}:${PORT_S}/game?t=${TOKEN}` : `http://${lan}:${PORT}/game?t=${TOKEN}`;
+    const alvo = `http://${lan}:${PORT}/game?t=${TOKEN}`;
+    const alvoS = `https://${lan}:${PORT_S}/game?t=${TOKEN}`;
     let qr = '';
     qrcode.generate(alvo, { small: true }, q => { qr = q; });
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>PixelPad - parear</title>
 <style>body{background:#0d0f12;color:#e6e8ec;font-family:system-ui,sans-serif;display:flex;flex-direction:column;
-align-items:center;gap:18px;padding:32px}h1{font-size:20px;font-weight:600;margin:0}pre{font-size:13px;line-height:1.05;
-background:#111721;padding:18px;border-radius:12px;color:#cdd6e2}b{color:#7db6ff}code{background:#111721;padding:4px 8px;
-border-radius:6px;font-size:12px}</style></head><body>
+align-items:center;gap:16px;padding:28px 20px}h1{font-size:19px;font-weight:600;margin:0;text-align:center}
+pre{font-size:13px;line-height:1.05;background:#111721;padding:18px;border-radius:12px;color:#cdd6e2;margin:0}
+b{color:#7db6ff}code{background:#111721;padding:4px 9px;border-radius:6px;font-size:12px;word-break:break-all}
+.card{border-top:1px solid #1e2836;padding-top:18px;max-width:420px;text-align:center;color:#8a94a3;font-size:13px;line-height:1.6}
+a{color:#7db6ff}</style></head><body>
 <h1>Aponte a camera do celular para o codigo</h1>
 <pre>${qr.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
-<p>Celular precisa estar no mesmo Wi-Fi. Endereco: <code>${alvo}</code></p>
-<p style="color:#4b5766;font-size:12px">Token: <b>${TOKEN.slice(0, 8)}...</b> &middot; guardado em data/token.txt</p>
+<p style="margin:0">mesmo Wi-Fi do PC &middot; <code>${alvo}</code></p>
+<div class="card">
+  <b>Quer instalar como app na tela inicial?</b><br>
+  1. abra <a href="http://${lan}:${PORT}/ca.crt">http://${lan}:${PORT}/ca.crt</a> no celular e instale como <b>CA</b><br>
+  2. abra <a href="/app?t=${TOKEN}">/app</a> &middot; 3. menu &rsaquo; <b>Instalar aplicativo</b><br>
+  <span style="color:#4b5766;font-size:11px">endereco HTTPS: ${alvoS}</span>
+</div>
+<p style="color:#4b5766;font-size:11px;margin:0">token ${TOKEN.slice(0, 8)}... &middot; data/token.txt</p>
 </body></html>`);
   }
   if (u === '/manifest.webmanifest') {
@@ -604,10 +613,12 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('  ============================================================\n');
   console.log('  Certificado da CA para instalar no celular:');
   console.log(`     http://${lan}:${PORT}/ca.crt\n`);
-  const alvo = serverS ? `https://${lan}:${PORT_S}/game?t=${TOKEN}` : `http://${lan}:${PORT}/game?t=${TOKEN}`;
+  const alvo = `http://${lan}:${PORT}/game?t=${TOKEN}`;
   console.log('  Escaneie com a camera do celular (ja vem com o codigo de pareamento):\n');
   qrcode.generate(alvo, { small: true }, q => console.log(q));
-  console.log('\n  O QR carrega o token. Quem nao tiver o token nao controla o PC.');
-  console.log('  Token salvo em data/token.txt (apague para gerar outro).\n');
+  console.log(`\n  Link direto: ${alvo}`);
+  console.log('  O QR carrega o token. Quem nao tiver o token nao controla o PC.');
+  console.log('  Token salvo em data/token.txt (apague para gerar outro).');
+  console.log('  Pagina de pareamento: http://127.0.0.1:8080/pair\n');
   logLine(`servidor iniciado | http ${lan}:${PORT} | https ${serverS ? lan + ':' + PORT_S : 'off'}`);
 });

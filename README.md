@@ -44,21 +44,28 @@ npm start
 ```
 
 O terminal mostra um **QR code**. Escaneie com o celular (mesma rede Wi-Fi) e pronto.
+Não precisa instalar certificado pra jogar: o QR aponta pro HTTP.
 
 ```
-Gamepad :  https://192.168.x.x:8443/game?t=<token>
+Gamepad :  http://192.168.x.x:8080/game?t=<token>
 Trackpad:  http://192.168.x.x:8080
 ```
 
-## Instalar como app no celular
+Se preferir, abra `http://127.0.0.1:8080/pair` no PC pra ver o QR na tela.
+
+## Instalar como app no celular (opcional)
+
+O gamepad funciona direto pelo navegador. Instalar como app só serve pra abrir
+com um toque e ficar em tela cheia — e pra isso o Chrome exige HTTPS.
 
 1. Abra `http://<ip>:8080/ca.crt` no celular e instale o certificado
    (Configurações → Segurança → Criptografia e credenciais → Instalar certificado → **CA**)
 2. Abra `http://<ip>:8080/app` — ele redireciona pro HTTPS
 3. Chrome → menu ⋮ → **Instalar aplicativo**
 
-O certificado é gerado na primeira execução, **só pra sua máquina**, e a chave
-privada fica em `certs/` (que nunca vai pro Git).
+A CA e o certificado do servidor são gerados na primeira execução, **só pra sua
+máquina**, e são refeitos sozinhos quando o IP do PC muda. A chave privada fica em
+`certs/` (que nunca vai pro Git).
 
 ## Segurança
 
@@ -73,7 +80,7 @@ privada fica em `certs/` (que nunca vai pro Git).
 ```
 src/server.mjs   servidor HTTP/HTTPS + WebSocket + páginas (trackpad e gamepad)
 src/vigem.mjs    controle virtual via ViGEmClient.dll (koffi, sem Python/.NET)
-src/certs.mjs    gera a CA local e o certificado do servidor na 1a execução
+src/certs.mjs    CA local + certificado do servidor assinado por ela (node-forge)
 native/          ViGEmClient.dll (x64)
 certs/           gerado em runtime - NUNCA versionar
 data/            token de pareamento - NUNCA versionar
