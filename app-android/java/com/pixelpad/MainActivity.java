@@ -49,7 +49,14 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle estado) {
         super.onCreate(estado);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        telaCheia();
+        // usa tambem a area do recorte da camera (senao o sistema deixa uma barra preta)
+        WindowManager.LayoutParams attrs = getWindow().getAttributes();
+        if (Build.VERSION.SDK_INT >= 30) {
+            attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+        } else if (Build.VERSION.SDK_INT >= 28) {
+            attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
+        getWindow().setAttributes(attrs);
 
         prefs = getSharedPreferences("pixelpad", MODE_PRIVATE);
 
@@ -81,6 +88,7 @@ public class MainActivity extends Activity {
 
         setContentView(web);
         montarOverlay();
+        telaCheia();   // precisa da view ja montada na janela
 
         String salvo = prefs.getString("url", null);
         if (salvo != null) {
@@ -166,15 +174,17 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------------ tela
 
     private void telaCheia() {
+        View decor = getWindow().getDecorView();
+        if (decor == null) return;   // ainda sem view na janela
         if (Build.VERSION.SDK_INT >= 30) {
             getWindow().setDecorFitsSystemWindows(false);
-            WindowInsetsController c = getWindow().getInsetsController();
+            WindowInsetsController c = decor.getWindowInsetsController();
             if (c != null) {
                 c.hide(WindowInsets.Type.systemBars());
                 c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
         } else {
-            getWindow().getDecorView().setSystemUiVisibility(
+            decor.setSystemUiVisibility(
                     View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                             | View.SYSTEM_UI_FLAG_FULLSCREEN
                             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -256,7 +266,10 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        telaCheia();
+        ui.post(new Runnable() {
+            @Override
+            public void run() { telaCheia(); }
+        });
         if (web.getUrl() == null) procurar(false);
     }
 
