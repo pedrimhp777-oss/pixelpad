@@ -19,6 +19,7 @@ import qrcode from 'qrcode-terminal';
 import { WebSocketServer } from 'ws';
 import { createClient } from './vigem.mjs';
 import { gamePage } from './game-page.mjs';
+import { startPage } from './start-page.mjs';
 import { ensureCerts } from './certs.mjs';
 
 const LOG = new URL('../phone-pad.log', import.meta.url).pathname.replace(/^\//, '');
@@ -280,6 +281,7 @@ const SVG = {
 };
 
 const GAME_PAGE = gamePage({ CSS, SVG });
+const START_PAGE = startPage({ SVG });
 
 const MANIFEST = JSON.stringify({
   name: 'Gamepad do PC',
@@ -335,6 +337,10 @@ function handle(req, res) {
   if (u === '/app' && secure) {
     res.writeHead(302, { Location: `/game` });
     return res.end();
+  }
+  if (u === '/inicio' || u === '/start' || u === '/perfis') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(START_PAGE);
   }
   if (u === '/pair') {
     const ip = req.socket.remoteAddress || '';

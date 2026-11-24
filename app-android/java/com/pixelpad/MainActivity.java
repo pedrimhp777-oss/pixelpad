@@ -135,7 +135,7 @@ public class MainActivity extends Activity {
                             JSONObject json = new JSONObject(texto.substring(9));
                             achado = "http://" + json.getString("ip")
                                     + ":" + json.getInt("porta")
-                                    + "/game?t=" + json.getString("token");
+                                    + "/inicio?t=" + json.getString("token");
                         } catch (Exception ignorada) {
                             // timeout: tenta de novo ate o limite
                         }

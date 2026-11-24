@@ -42,6 +42,38 @@ Prefere não instalar nada? Baixe o `.zip` portátil, descompacte e rode `PixelP
 
 > O instalador usa o Node LTS oficial (licença MIT, incluída no pacote).
 
+## Perfis prontos (tela inicial)
+
+Quando o app abre, ele pergunta como você quer jogar — em duas escolhas independentes:
+
+**1. Estilo do controle (muda os símbolos)**
+
+| Perfil | Direita | Ombros | Esconde |
+|---|---|---|---|
+| PlayStation | △ ○ ✕ □ | L1 L2 R1 R2, SHARE, OPTIONS | — |
+| Xbox | A verde, B vermelho, X azul, Y amarelo | LB LT RB RT, VIEW, MENU | — |
+| Nintendo clássico | X em cima, Y à esquerda, A à direita, B embaixo | L e R | analógicos, gatilhos analógicos, touchpad, PS |
+
+**2. Tipo de jogo (muda a posição)**
+
+| Estilo | Como fica |
+|---|---|
+| Padrão | os dois analógicos, tudo no lugar de sempre |
+| Luta | direcional e 4 botões grandes, sem analógico no caminho |
+| Corrida | analógico grande à esquerda, gatilhos largos em cima |
+| Plataforma | direcional à esquerda, botão de pulo grande à direita |
+
+Os dois se combinam: Xbox + Corrida, Nintendo + Luta, e assim por diante.
+Depois de escolher, o app abre direto no controle. Pra trocar, toque no **⊞**
+no topo da tela.
+
+As posições seguem as convenções dos emuladores de celular (PPSSPP/AetherSX2 para
+o arranjo PlayStation, Xbox Cloud Gaming/Dolphin para o Xbox, Snes9x EX+/RetroArch
+para o Nintendo), e não uma cópia pixel a pixel de nenhum app.
+
+> **"usar meu layout atual"** mantém exatamente o que você já arrumou, sem aplicar
+> nada — bom quando você só quer abrir e jogar.
+
 ## Editor de layout
 
 Toque em **✎ Editar** e os controles ficam translúcidos, pra você ver o jogo atrás

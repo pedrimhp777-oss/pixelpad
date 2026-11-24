@@ -8,6 +8,8 @@
 // vira um botao novo. Ao apertar, o celular manda a sequencia e o PC executa
 // com temporizacao propria - nao depende do tempo do toque no celular.
 
+import { dadosJS } from './presets.mjs';
+
 export function gamePage({ CSS, SVG }) {
   return String.raw`<!doctype html><html lang="pt-BR"><head>
 <meta charset="utf-8">
@@ -98,6 +100,7 @@ export function gamePage({ CSS, SVG }) {
 <div id="stage"></div>
 <div id="hud">
   <span id="st"></span>
+  <button id="bperfis">&#8862;</button>
   <button id="bfull">&#9974;</button>
   <button id="bedit">&#9998; Editar</button>
 </div>
@@ -125,6 +128,7 @@ export function gamePage({ CSS, SVG }) {
 <div id="rot">Gire o celular<br>para a horizontal</div>
 <script>
 const SVGS = ` + JSON.stringify(SVG) + `;
+` + dadosJS() + `
 const st = document.getElementById('st');
 const stage = document.getElementById('stage');
 const state = {a:0,b:0,x:0,y:0,lb:0,rb:0,back:0,start:0,du:0,dd:0,dl:0,dr:0,
@@ -169,7 +173,8 @@ for (const n of NOS) {
 }
 
 // ---------------------------------------------------------------- layout salvo
-const LKEY = 'padLayoutV2';
+const LKEY = 'padLayoutV3';
+const PERFIL_KEY = 'pixelpadPerfil';
 const DEF = {
   l2:{x:6,y:11,s:1}, l1:{x:6,y:27,s:1},
   r1:{x:94,y:11,s:1}, r2:{x:94,y:27,s:1},
@@ -188,7 +193,12 @@ let dados = carregar();
 function carregar() {
   let j = null;
   try { j = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
-  if (j && j.nodes) return j;
+  if (j && j.nodes) { if (!j.marca) j.marca = 'ps'; return j; }
+
+  // layout da versao anterior: posicoes do usuario viram o "meu layout"
+  let v2 = null;
+  try { v2 = JSON.parse(localStorage.getItem('padLayoutV2')); } catch (e) {}
+  if (v2 && v2.nodes) { v2.marca = 'ps'; v2.estilo = 'meu'; return v2; }
 
   // migracao do layout antigo
   let antigo = null;
@@ -206,11 +216,59 @@ function carregar() {
       }
     }
     for (const id in DEF) if (!nodes[id]) nodes[id] = Object.assign({}, DEF[id], { hid: false });
-    return { nodes, macros: [] };
+    return { nodes, macros: [], marca: 'ps', estilo: 'meu' };
   }
   const nodes = {};
   for (const id in DEF) nodes[id] = Object.assign({}, DEF[id], { hid: false });
-  return { nodes, macros: [] };
+  return { nodes, macros: [], marca: 'ps', estilo: 'meu' };
+}
+
+/** Monta as posicoes de um preset e marca o que a marca esconde. */
+function montarPreset(marca, estilo) {
+  const M = MARCAS[marca] || MARCAS.ps;
+  const E = ESTILOS[estilo] || ESTILOS.padrao;
+  const nodes = {};
+  for (const id in DEF) nodes[id] = { x: DEF[id].x, y: DEF[id].y, s: 1, hid: true };
+  for (const id in E.nodes) {
+    if (!nodes[id]) continue;
+    const v = E.nodes[id];
+    nodes[id] = { x: v[0], y: v[1], s: v[2], hid: false };
+  }
+  for (const id of M.ocultar) if (nodes[id]) nodes[id].hid = true;
+  return nodes;
+}
+
+/** Se o usuario escolheu um perfil novo na tela inicial, aplica ele. */
+function sincronizarPerfil() {
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(PERFIL_KEY)); } catch (e) {}
+  if (!p || !p.marca || !p.estilo) return;
+  if (!MARCAS[p.marca] || !ESTILOS[p.estilo]) return;
+  if (dados.marca === p.marca && dados.estilo === p.estilo) return;
+  dados.nodes = montarPreset(p.marca, p.estilo);
+  dados.marca = p.marca;
+  dados.estilo = p.estilo;
+  salvar();
+}
+
+/** Simbolos e rotulos dos botoes conforme a marca escolhida. */
+function aplicarMarca() {
+  const M = MARCAS[dados.marca] || MARCAS.ps;
+  const PADRAO_ROT = { l2: 'L2', l1: 'L1', r1: 'R1', r2: 'R2', share: 'SHARE', options: 'OPTIONS', ps: 'PS' };
+  for (const id in PADRAO_ROT) {
+    const el = document.getElementById(id);
+    if (el && !el.querySelector('svg')) el.textContent = (M.rotulos && M.rotulos[id]) || PADRAO_ROT[id];
+  }
+  for (const id of ['y', 'x', 'b', 'a']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const sym = M.faces[id];
+    const novo = SVGS[sym] || sym;
+    if (el.dataset.sym !== sym) { el.innerHTML = novo; el.dataset.sym = sym; }
+    const c = M.cores[id];
+    el.style.background = c ? c[0] : '';
+    el.style.color = c ? c[1] : '';
+  }
 }
 function salvar() { try { localStorage.setItem(LKEY, JSON.stringify(dados)); } catch (e) {} }
 
@@ -419,7 +477,7 @@ document.getElementById('breset').onclick = () => {
   for (const id in DEF) dados.nodes[id] = Object.assign({}, DEF[id], { hid: false });
   dados.macros = [];
   for (const m of Array.from(stage.querySelectorAll('.macro'))) m.remove();
-  selected = null; salvar(); aplicar();
+  selected = null; salvar(); aplicarMarca(); aplicar();
 };
 
 // arrastar os nos no modo edicao
@@ -528,12 +586,18 @@ mSave.onclick = () => {
 };
 
 // ---------------------------------------------------------------- tela cheia
+document.getElementById('bperfis').onclick = () => {
+  location.href = '/inicio' + (location.search ? location.search + '&menu=1' : '?menu=1');
+};
+
 document.getElementById('bfull').onclick = () => {
   const d = document.documentElement;
   if (!document.fullscreenElement) { (d.requestFullscreen || d.webkitRequestFullscreen || function(){}).call(d); }
   else { (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document); }
 };
 
+sincronizarPerfil();
+aplicarMarca();
 aplicar();
 connect();
 </script>
