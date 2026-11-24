@@ -1,0 +1,9 @@
+node_modules/
+certs/
+data/
+*.log
+*.out
+.DS_Store
+Thumbs.db
+render/
+tv.mjs

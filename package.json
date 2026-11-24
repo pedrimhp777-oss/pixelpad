@@ -1,0 +1,22 @@
+{
+  "name": "pixelpad",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Use o celular como controle (gamepad Xbox virtual) e trackpad do PC pela rede local. Sem cabo, sem nuvem, ~1ms de latencia.",
+  "type": "module",
+  "main": "src/server.mjs",
+  "scripts": {
+    "start": "node src/server.mjs"
+  },
+  "keywords": ["gamepad", "controller", "trackpad", "vigem", "xinput", "lan", "pwa"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "koffi": "^3.3.8",
+    "qrcode-terminal": "^0.12.0",
+    "selfsigned": "^5.5.0",
+    "ws": "^8.23.0"
+  }
+}
