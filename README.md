@@ -58,7 +58,7 @@ Quando o app abre, ele pergunta como você quer jogar — em duas escolhas indep
 
 | Estilo | Como fica |
 |---|---|
-| Padrão | os dois analógicos, tudo no lugar de sempre |
+| Padrão | direcional em cima, analógico embaixo — medida do PPSSPP |
 | Luta | direcional e 4 botões grandes, sem analógico no caminho |
 | Corrida | analógico grande à esquerda, gatilhos largos em cima |
 | Plataforma | direcional à esquerda, botão de pulo grande à direita |
@@ -67,9 +67,41 @@ Os dois se combinam: Xbox + Corrida, Nintendo + Luta, e assim por diante.
 Depois de escolher, o app abre direto no controle. Pra trocar, toque no **⊞**
 no topo da tela.
 
-As posições seguem as convenções dos emuladores de celular (PPSSPP/AetherSX2 para
-o arranjo PlayStation, Xbox Cloud Gaming/Dolphin para o Xbox, Snes9x EX+/RetroArch
-para o Nintendo), e não uma cópia pixel a pixel de nenhum app.
+### De onde vieram as posições
+
+O perfil **Padrão** não é chute: saiu do código-fonte do [PPSSPP](https://github.com/hrydgard/ppsspp)
+(`UI/GamepadEmu.cpp`, função `InitPadLayout`, com `D_pad_Radius = 50`,
+`baseActionButtonSpacing = 60` e `scale = 1.15`):
+
+```
+D-pad .......... X = 2.5 * raio, Y = base - raio - 200 (sobe quando tem analógico)
+Analógico ...... mesma X do d-pad, Y = base - 80   ← "right below the D pad"
+Botões ......... X = largura - 2*espaçamento, Y = base - 2*espaçamento - 150
+Analógico dir. . mesma X dos botões, Y = base - 80
+Start/Select ... centro, embaixo
+```
+
+Ou seja: **direcional em cima e analógico logo abaixo** — o contrário do que a
+maioria chuta ao montar um controle na tela, e é o que os emuladores fazem porque
+o polegar alcança o analógico sem soltar o celular.
+
+Quando a marca esconde os analógicos (Nintendo clássico), o direcional e os botões
+descem — reproduzindo o mesmo ajuste que o PPSSPP faz ao ocultar o stick.
+
+Os perfis de **Luta/Corrida/Plataforma** são ergonomia minha, não cópia de emulador:
+não existe convenção publicada pra eles.
+
+## Modo menu e modo jogo
+
+O botão **JOGO/MENU** no topo alterna entre dois layouts completos:
+
+- **JOGO**: tudo, com os dois analógicos
+- **MENU**: os mesmos botões, **sem os analógicos** — pra navegar em menu de jogo,
+  launcher ou emulador sem ficar esbarrando no stick
+
+Cada modo é editável e guardado separado: arrume o de menu com o ✎, volte pro JOGO,
+arrume de novo — os dois ficam como você deixou. O modo escolhido também fica salvo,
+então o app reabre do jeito que você parou.
 
 > **"usar meu layout atual"** mantém exatamente o que você já arrumou, sem aplicar
 > nada — bom quando você só quer abrir e jogar.

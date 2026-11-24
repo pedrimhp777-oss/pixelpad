@@ -100,6 +100,7 @@ export function gamePage({ CSS, SVG }) {
 <div id="stage"></div>
 <div id="hud">
   <span id="st"></span>
+  <button id="bmodo">JOGO</button>
   <button id="bperfis">&#8862;</button>
   <button id="bfull">&#9974;</button>
   <button id="bedit">&#9998; Editar</button>
@@ -176,12 +177,12 @@ for (const n of NOS) {
 const LKEY = 'padLayoutV3';
 const PERFIL_KEY = 'pixelpadPerfil';
 const DEF = {
-  l2:{x:6,y:11,s:1}, l1:{x:6,y:27,s:1},
-  r1:{x:94,y:11,s:1}, r2:{x:94,y:27,s:1},
-  ls:{x:16,y:44,s:1}, rs:{x:82,y:74,s:1},
-  du:{x:16,y:64,s:1}, dd:{x:16,y:84,s:1}, dl:{x:10.5,y:74,s:1}, dr:{x:21.5,y:74,s:1},
-  y:{x:82,y:26,s:1}, x:{x:75,y:37,s:1}, b:{x:89,y:37,s:1}, a:{x:82,y:48,s:1},
-  tp:{x:50,y:31,s:1}, share:{x:43,y:60,s:1}, options:{x:57,y:60,s:1}, ps:{x:50,y:79,s:1},
+  l2:{x:8,y:12,s:1}, l1:{x:8,y:28,s:1},
+  r1:{x:92,y:12,s:1}, r2:{x:92,y:28,s:1},
+  du:{x:9,y:50,s:1}, dd:{x:9,y:70,s:1}, dl:{x:4.5,y:60,s:1}, dr:{x:13.5,y:60,s:1},
+  ls:{x:9,y:87,s:.85}, rs:{x:91,y:87,s:.85},
+  y:{x:91,y:44,s:1}, x:{x:86.5,y:54,s:1}, b:{x:95.5,y:54,s:1}, a:{x:91,y:64,s:1},
+  tp:{x:50,y:30,s:.9}, share:{x:50,y:92,s:.8}, options:{x:58,y:92,s:.8}, ps:{x:50,y:84,s:.8},
 };
 // grupos do layout antigo (v1) -> filhos, pra nao perder o que ja foi ajustado
 const V1 = {
@@ -193,7 +194,7 @@ let dados = carregar();
 function carregar() {
   let j = null;
   try { j = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
-  if (j && j.nodes) { if (!j.marca) j.marca = 'ps'; return j; }
+  if (j && j.nodes) { if (!j.marca) j.marca = 'ps'; if (!j.modo) j.modo = 'jogo'; return j; }
 
   // layout da versao anterior: posicoes do usuario viram o "meu layout"
   let v2 = null;
@@ -235,6 +236,11 @@ function montarPreset(marca, estilo) {
     nodes[id] = { x: v[0], y: v[1], s: v[2], hid: false };
   }
   for (const id of M.ocultar) if (nodes[id]) nodes[id].hid = true;
+  if (nodes.ls && nodes.ls.hid && nodes.rs && nodes.rs.hid) {
+    for (const id of ['du', 'dd', 'dl', 'dr', 'y', 'x', 'b', 'a']) {
+      if (nodes[id] && !nodes[id].hid) nodes[id].y = Math.min(92, nodes[id].y + 18);
+    }
+  }
   return nodes;
 }
 
@@ -270,12 +276,18 @@ function aplicarMarca() {
     el.style.color = c ? c[1] : '';
   }
 }
-function salvar() { try { localStorage.setItem(LKEY, JSON.stringify(dados)); } catch (e) {} }
+function salvar() {
+  try {
+    localStorage.setItem(LKEY, JSON.stringify(dados));
+    if (dados.modo) localStorage.setItem(LKEY + ':' + dados.modo, JSON.stringify(dados));
+  } catch (e) {}
+}
 
 function aplicar() {
   for (const id in DEF) {
     const el = document.getElementById(id); if (!el) continue;
-    const L = dados.nodes[id] || DEF[id];
+    const bruto = dados.nodes[id];
+    const L = (bruto && typeof bruto.x === 'number' && typeof bruto.y === 'number') ? bruto : DEF[id];
     el.style.left = L.x + '%';
     el.style.top = L.y + '%';
     el.style.transform = 'translate(-50%,-50%) scale(' + (L.s || 1) + ')';
@@ -586,6 +598,34 @@ mSave.onclick = () => {
 };
 
 // ---------------------------------------------------------------- tela cheia
+/** Alterna entre o layout de menu (sem analogico) e o de jogo. */
+function alternarModo() {
+  const novo = dados.modo === 'menu' ? 'jogo' : 'menu';
+  salvar();
+  const guardado = localStorage.getItem(LKEY + ':' + novo);
+  if (guardado) {
+    try { dados = JSON.parse(guardado); } catch (e) { dados.modo = novo; }
+    dados.modo = novo;
+  } else {
+    // primeira vez neste modo: copia o atual e esconde/mostra o analogico
+    dados = JSON.parse(JSON.stringify(dados));
+    dados.modo = novo;
+    for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = (novo === 'menu');
+  }
+  salvar();
+  aplicarMarca();
+  aplicar();
+  atualizarBotaoModo();
+}
+
+function atualizarBotaoModo() {
+  const b = document.getElementById('bmodo');
+  b.textContent = dados.modo === 'menu' ? 'MENU' : 'JOGO';
+  b.classList.toggle('modoMenu', dados.modo === 'menu');
+}
+
+document.getElementById('bmodo').onclick = alternarModo;
+
 document.getElementById('bperfis').onclick = () => {
   location.href = '/inicio' + (location.search ? location.search + '&menu=1' : '?menu=1');
 };
@@ -599,6 +639,7 @@ document.getElementById('bfull').onclick = () => {
 sincronizarPerfil();
 aplicarMarca();
 aplicar();
+atualizarBotaoModo();
 connect();
 </script>
 </body></html>`;

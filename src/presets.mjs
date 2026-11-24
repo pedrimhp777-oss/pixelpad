@@ -18,6 +18,7 @@
 export const MARCAS = {
   ps: {
     nome: 'PlayStation',
+    grad: ['#1a3f8f', '#2f6df6'],
     resumo: 'triangulo, bola, X, quadrado',
     faces: { y: 'triangle', x: 'square', b: 'circle', a: 'cross' },
     cores: {
@@ -29,6 +30,7 @@ export const MARCAS = {
   },
   xbox: {
     nome: 'Xbox',
+    grad: ['#0a5c1a', '#2fa84f'],
     resumo: 'A verde, B vermelho, X azul, Y amarelo',
     faces: { y: 'Y', x: 'X', b: 'B', a: 'A' },
     cores: {
@@ -40,6 +42,7 @@ export const MARCAS = {
   },
   snes: {
     nome: 'Nintendo classico',
+    grad: ['#8a1f1f', '#e2453c'],
     resumo: 'X em cima, Y a esquerda, A a direita, B embaixo',
     faces: { y: 'X', x: 'Y', b: 'A', a: 'B' },
     cores: {
@@ -56,17 +59,23 @@ export const MARCAS = {
 export const ESTILOS = {
   padrao: {
     nome: 'Padrao',
-    resumo: 'os dois analogicos, tudo no lugar de sempre',
+    grad: ['#a1440a', '#ff8a1f'],
+    resumo: 'direcional em cima, analogico embaixo (padrao do PPSSPP)',
+    // Numeros vindos do PPSSPP (UI/GamepadEmu.cpp, InitPadLayout) convertidos
+    // para % com tela 1600x720: D_pad_Radius=50, spacing=60, scale=1.15.
+    // O direcional sobe quando o analogico aparece; o analogico fica logo abaixo.
     nodes: {
-      l2: [6, 11, 1], l1: [6, 27, 1], r1: [94, 11, 1], r2: [94, 27, 1],
-      ls: [16, 44, 1], rs: [82, 74, 1],
-      du: [16, 64, 1], dd: [16, 84, 1], dl: [10.5, 74, 1], dr: [21.5, 74, 1],
-      y: [82, 26, 1], x: [75, 37, 1], b: [89, 37, 1], a: [82, 48, 1],
-      tp: [50, 31, 1], share: [43, 60, 1], options: [57, 60, 1], ps: [50, 79, 1],
+      l1: [8, 12, 1], l2: [8, 28, 1], r1: [92, 12, 1], r2: [92, 28, 1],
+      du: [9, 50, 1], dd: [9, 70, 1], dl: [4.5, 60, 1], dr: [13.5, 60, 1],
+      ls: [9, 87, 0.85],
+      y: [91, 44, 1], x: [86.5, 54, 1], b: [95.5, 54, 1], a: [91, 64, 1],
+      rs: [91, 87, 0.85],
+      tp: [50, 30, 0.9], share: [50, 92, 0.8], options: [58, 92, 0.8], ps: [50, 84, 0.8],
     },
   },
   luta: {
     nome: 'Luta',
+    grad: ['#4a1f8a', '#8b5cf6'],
     resumo: 'direcional e 4 botoes grandes, sem analogico no caminho',
     nodes: {
       l1: [9, 7, 1.15], l2: [9, 20, 1.15], r1: [93, 7, 1.15], r2: [93, 20, 1.15],
@@ -77,6 +86,7 @@ export const ESTILOS = {
   },
   corrida: {
     nome: 'Corrida',
+    grad: ['#0f5f6b', '#20b8c9'],
     resumo: 'analogico grande na esquerda, gatilhos largos em cima',
     nodes: {
       ls: [17, 55, 1.45], rs: [58, 84, 0.85],
@@ -87,6 +97,7 @@ export const ESTILOS = {
   },
   plataforma: {
     nome: 'Plataforma',
+    grad: ['#3f6c10', '#8fd428'],
     resumo: 'direcional na esquerda, pulo grande na direita',
     nodes: {
       du: [15, 44, 1.25], dd: [15, 80, 1.25], dl: [6, 62, 1.25], dr: [24, 62, 1.25],
@@ -109,9 +120,15 @@ export function montarNodes(marca, estilo, baseIds) {
     nodes[id] = { x: v[0], y: v[1], s: v[2], hid: false };
   }
   for (const id of M.ocultar) if (nodes[id]) nodes[id].hid = true;
+  // sem analogico, direcional e botoes descem - e o que o PPSSPP faz quando
+  // o stick esta oculto (D_pad_Y = screenBottom - raio, sem o -200 do stick)
+  if (nodes.ls && nodes.ls.hid && nodes.rs && nodes.rs.hid) {
+    for (const id of ['du', 'dd', 'dl', 'dr', 'y', 'x', 'b', 'a']) {
+      if (nodes[id] && !nodes[id].hid) nodes[id].y = Math.min(92, nodes[id].y + 18);
+    }
+  }
   return { nodes, marca: M, estilo: E };
 }
-
 /** Trecho de JS embutido nas paginas (dados puros, sem funcao). */
 export function dadosJS() {
   return 'const MARCAS = ' + JSON.stringify(MARCAS) + ';\nconst ESTILOS = ' + JSON.stringify(ESTILOS) + ';';

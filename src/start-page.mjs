@@ -1,7 +1,9 @@
 // Tela inicial (/inicio): escolher marca do controle e tipo de jogo.
 //
-// Ela e a primeira coisa que o app abre. Se ja existe um perfil salvo, pula
-// direto pro gamepad - a menos que venha com ?menu=1 (botao "Perfis").
+// Visual inspirado nos launchers de emulador de celular: cards de largura cheia
+// com gradiente proprio, titulo em caixa alta e uma linha de descricao.
+// Adaptado para paisagem (o celular fica deitado), entao os cards ficam em
+// linha em vez de empilhados.
 
 import { MARCAS, ESTILOS, dadosJS } from './presets.mjs';
 
@@ -9,139 +11,135 @@ export function startPage({ SVG }) {
   return String.raw`<!doctype html><html lang="pt-BR"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#0d0f12">
+<meta name="theme-color" content="#0a0b0e">
 <title>PixelPad</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; min-height: 100%; background: #0d0f12; color: #e6e8ec;
-    font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-user-select: none; }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 20px 40px; }
-  header { text-align: center; margin: 6px 0 18px; }
-  h1 { margin: 0; font-size: 34px; letter-spacing: -.5px; }
-  h1 span { color: #2f6df6; }
-  header p { margin: 6px 0 0; color: #8a94a3; font-size: 15px; }
-  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1.6px; color: #6b7787;
-    margin: 22px 0 10px; font-weight: 700; }
-  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-  .card { background: #121821; border: 1.5px solid #1e2836; border-radius: 14px; padding: 14px;
-    cursor: pointer; transition: border-color .12s, background .12s; display: flex; flex-direction: column; gap: 10px; }
+  html, body { margin: 0; height: 100%; background: #0a0b0e; color: #e9ecf1;
+    font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-user-select: none;
+    overflow: hidden; }
+  .wrap { height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 14px; }
+
+  .topo { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 44px; height: 44px; border-radius: 13px; flex: none;
+    background: radial-gradient(circle at 32% 28%, #ffd34d, #f09100 70%);
+    display: grid; place-items: center; font-weight: 900; font-size: 15px; color: #2a1600;
+    box-shadow: 0 0 18px rgba(240,145,0,.45); }
+  h1 { margin: 0; font-size: 21px; font-weight: 900; font-style: italic; letter-spacing: .6px;
+    color: #f7c518; line-height: 1.05; }
+  .topo p { margin: 1px 0 0; font-size: 11.5px; color: #8a94a3; }
+  #jogar { margin-left: auto; padding: 11px 26px; border: 0; border-radius: 12px;
+    background: #2f6df6; color: #fff; font-size: 14px; font-weight: 800; font-family: inherit;
+    letter-spacing: .5px; }
+  #jogar:active { transform: scale(.98); }
+
+  .secao { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .secao h2 { margin: 0; font-size: 9.5px; letter-spacing: 1.6px; color: #6b7787; font-weight: 800; }
+  .linha { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
+  #estilos { grid-template-columns: repeat(4, 1fr); }
+
+  .card { position: relative; border-radius: 13px; padding: 9px 11px; border: 2px solid transparent;
+    background: linear-gradient(135deg, var(--a), var(--b)); cursor: pointer; overflow: hidden;
+    display: flex; flex-direction: column; gap: 2px; transition: transform .1s, border-color .1s; }
   .card:active { transform: scale(.985); }
-  .card.sel { border-color: #2f6df6; background: #14203a; }
-  .card b { font-size: 16px; }
-  .card small { color: #7d8797; font-size: 12.5px; line-height: 1.45; }
-  .diamante { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
-    gap: 1px; width: 68px; height: 68px; margin: 2px auto 0; }
-  .diamante .b { width: auto; height: auto; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
-  .diamante .b svg { width: 15px; height: 15px; }
-  .diamante .y { grid-area: 1 / 2; }
-  .diamante .x { grid-area: 2 / 1; }
-  .diamante .b2 { grid-area: 2 / 3; }
-  .diamante .a { grid-area: 3 / 2; }
-  .bolinha { display: flex; align-items: center; gap: 7px; color: #7d8797; font-size: 12.5px; }
-  .bolinha i { width: 9px; height: 9px; border-radius: 50%; background: #263140; display: block; }
-  .card.sel .bolinha i { background: #2f6df6; }
-  .acoes { display: flex; flex-direction: column; gap: 10px; margin-top: 26px; align-items: center; }
-  #jogar { width: 100%; max-width: 420px; padding: 17px; border: 0; border-radius: 14px;
-    background: #2f6df6; color: #fff; font-size: 18px; font-weight: 800; font-family: inherit; }
-  #jogar:active { transform: scale(.99); }
-  #meu { background: none; border: 0; color: #7d8797; font-size: 14px; font-family: inherit; padding: 6px; }
-  #voltar { background: none; border: 0; color: #7db6ff; font-size: 14px; font-family: inherit; padding: 6px; }
+  .card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.06), rgba(0,0,0,.28)); }
+  .card > * { position: relative; z-index: 1; }
+  .card b { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .5px;
+    color: #fff; line-height: 1.15; }
+  .card small { font-size: 9.5px; line-height: 1.25; color: rgba(255,255,255,.82); }
+  .card.sel { border-color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.35), 0 6px 18px rgba(0,0,0,.5); }
+  .card .ok { position: absolute; top: 7px; right: 8px; z-index: 2; font-size: 10px; font-weight: 900;
+    color: #0a0b0e; background: #fff; border-radius: 50%; width: 15px; height: 15px;
+    display: none; place-items: center; }
+  .card.sel .ok { display: grid; }
 
-  @media (max-height: 820px) {
-    .wrap { padding: 10px 18px 22px; }
-    header { margin: 0 0 6px; }
-    h1 { font-size: 23px; }
-    header p { font-size: 12px; margin-top: 3px; }
-    h2 { font-size: 10.5px; margin: 11px 0 6px; letter-spacing: 1.3px; }
-    .grid { grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 9px; }
-    .card { padding: 9px 10px; gap: 5px; border-radius: 11px; }
-    .diamante { width: 46px; height: 46px; }
-    .diamante .b { font-size: 10px; }
-    .diamante .b svg { width: 12px; height: 12px; }
-    .card b { font-size: 13.5px; }
-    .card small { font-size: 11px; }
-    .bolinha { font-size: 10.5px; }
-    .acoes { margin-top: 13px; gap: 4px; }
-    #jogar { padding: 12px; font-size: 15px; max-width: 300px; border-radius: 12px; }
-    #meu, #voltar { font-size: 12px; }
-  }
+  .sim { display: flex; gap: 3px; align-items: center; margin-bottom: 1px; }
+  .sim i { width: 13px; height: 13px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 7px; font-weight: 900; font-style: normal; }
+  .sim i svg { width: 9px; height: 9px; }
 
-  @media (max-height: 460px) {
-    .wrap { padding: 6px 12px 10px; }
-    header { margin: 0 0 2px; }
-    h1 { font-size: 15px; }
-    header p { display: none; }
-    h2 { font-size: 8.5px; margin: 6px 0 4px; letter-spacing: 1px; }
-    .grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    #estilos { grid-template-columns: repeat(4, 1fr); }
-    .card { padding: 5px 7px; gap: 2px; border-radius: 8px; }
-    .diamante { width: 30px; height: 30px; margin: 0 auto; gap: 0; }
-    .diamante .b { font-size: 7px; }
-    .diamante .b svg { width: 8px; height: 8px; }
-    .card b { font-size: 10.5px; }
-    .card small { font-size: 8.5px; line-height: 1.25; }
-    .bolinha { display: none; }
-    .acoes { margin-top: 7px; gap: 2px; }
-    #jogar { padding: 7px; font-size: 11px; max-width: 220px; border-radius: 8px; }
-    #meu, #voltar { font-size: 9px; padding: 2px; }
+  .rodape { margin-top: auto; display: flex; align-items: center; gap: 10px; min-height: 0; }
+  #detalhe { font-size: 10.5px; color: #7d8797; line-height: 1.35; flex: 1;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #detalhe b { color: #b9c4d2; }
+  #meu { background: none; border: 0; color: #6b7787; font-size: 10.5px; font-family: inherit;
+    padding: 4px 2px; flex: none; }
+
+  @media (min-height: 520px) {
+    .wrap { padding: 18px 22px; gap: 14px; }
+    h1 { font-size: 26px; }
+    .logo { width: 54px; height: 54px; font-size: 18px; }
+    .card { padding: 13px 15px; }
+    .card b { font-size: 15px; }
+    .card small { font-size: 11.5px; }
+    .secao h2 { font-size: 11px; }
+    #jogar { padding: 14px 34px; font-size: 16px; }
+    .sim i { width: 18px; height: 18px; font-size: 9px; }
+    .sim i svg { width: 12px; height: 12px; }
   }
-  .oculto { display: none !important; }
 </style></head><body>
 <div class="wrap">
-  <header>
-    <h1>Pixel<span>Pad</span></h1>
-    <p>Escolha como quer jogar</p>
-  </header>
+  <div class="topo">
+    <div class="logo">PP</div>
+    <div>
+      <h1>PIXELPAD</h1>
+      <p>Escolha como quer jogar</p>
+    </div>
+    <button id="jogar">JOGAR</button>
+  </div>
 
-  <h2>1. Estilo do controle</h2>
-  <div class="grid" id="marcas"></div>
+  <div class="secao">
+    <h2>ESTILO DO CONTROLE</h2>
+    <div class="linha" id="marcas"></div>
+  </div>
 
-  <h2>2. Tipo de jogo</h2>
-  <div class="grid" id="estilos"></div>
+  <div class="secao">
+    <h2>TIPO DE JOGO</h2>
+    <div class="linha" id="estilos"></div>
+  </div>
 
-  <div class="acoes">
-    <button id="jogar">Jogar</button>
-    <button id="voltar" class="oculto">&larr; voltar para o controle</button>
-    <button id="meu">usar meu layout atual (sem mudar nada)</button>
+  <div class="rodape">
+    <div id="detalhe"></div>
+    <button id="meu">usar meu layout atual</button>
   </div>
 </div>
 <script>
 const SVGS = ` + JSON.stringify(SVG) + `;
 ` + dadosJS() + `
 
-const CHAVE_PERFIL = 'pixelpadPerfil';
+const CHAVE = 'pixelpadPerfil';
 const qs = location.search || '';
 const comMenu = qs.indexOf('menu=1') >= 0;
 
 let perfil = { marca: 'ps', estilo: 'padrao' };
-try { const j = JSON.parse(localStorage.getItem(CHAVE_PERFIL)); if (j && j.marca) perfil = j; } catch (e) {}
+try { const j = JSON.parse(localStorage.getItem(CHAVE)); if (j && j.marca && MARCAS[j.marca]) perfil = j; } catch (e) {}
 
-// ja escolheu antes e nao pediu o menu -> vai direto pro controle
-if (localStorage.getItem(CHAVE_PERFIL) && !comMenu) {
-  location.replace('/game' + qs);
-} else {
-  document.getElementById('voltar').classList.toggle('oculto', !comMenu);
+if (localStorage.getItem(CHAVE) && !comMenu) location.replace('/game' + qs);
+
+function irJogo() {
+  const limpo = qs.replace(/([?&])menu=1&?/, '$1').replace(/[?&]$/, '');
+  location.href = '/game' + limpo;
 }
 
-function irPara(url) { location.href = url; }
+function simbolos(m) {
+  const ordem = ['y', 'x', 'b', 'a'];
+  let html = '';
+  for (const k of ordem) {
+    const f = m.faces[k];
+    const c = m.cores[k] || ['#222', '#fff'];
+    const dentro = SVGS[f] ? SVGS[f] : f;
+    html += '<i style="background:' + c[0] + ';color:' + c[1] + '">' + dentro + '</i>';
+  }
+  return '<div class="sim">' + html + '</div>';
+}
 
 function cartaoMarca(id, m) {
   const el = document.createElement('div');
   el.className = 'card' + (perfil.marca === id ? ' sel' : '');
-  el.dataset.marca = id;
-  const f = m.faces;
-  const cor = k => (m.cores[k] ? 'background:' + m.cores[k][0] + ';color:' + m.cores[k][1] : '');
-  const dentro = k => (f[k] && SVGS[f[k]] ? SVGS[f[k]] : (f[k] || ''));
-  el.innerHTML =
-    '<div class="diamante">' +
-      '<div class="b y" style="' + cor('y') + '">' + dentro('y') + '</div>' +
-      '<div class="b x" style="' + cor('x') + '">' + dentro('x') + '</div>' +
-      '<div class="b b2" style="' + cor('b') + '">' + dentro('b') + '</div>' +
-      '<div class="b a" style="' + cor('a') + '">' + dentro('a') + '</div>' +
-    '</div>' +
-    '<b>' + m.nome + '</b><small>' + m.resumo + '</small>' +
-    '<span class="bolinha"><i></i>selecionado</span>';
+  el.style.setProperty('--a', m.grad[0]);
+  el.style.setProperty('--b', m.grad[1]);
+  el.innerHTML = '<span class="ok">&#10003;</span>' + simbolos(m) +
+    '<b>' + m.nome + '</b><small>' + m.resumo + '</small>';
   el.onclick = () => { perfil.marca = id; desenhar(); };
   return el;
 }
@@ -149,9 +147,9 @@ function cartaoMarca(id, m) {
 function cartaoEstilo(id, e) {
   const el = document.createElement('div');
   el.className = 'card' + (perfil.estilo === id ? ' sel' : '');
-  el.dataset.estilo = id;
-  el.innerHTML = '<b>' + e.nome + '</b><small>' + e.resumo + '</small>' +
-    '<span class="bolinha"><i></i>selecionado</span>';
+  el.style.setProperty('--a', e.grad[0]);
+  el.style.setProperty('--b', e.grad[1]);
+  el.innerHTML = '<span class="ok">&#10003;</span><b>' + e.nome + '</b><small>' + e.resumo + '</small>';
   el.onclick = () => { perfil.estilo = id; desenhar(); };
   return el;
 }
@@ -162,20 +160,16 @@ function desenhar() {
   cm.innerHTML = ''; ce.innerHTML = '';
   for (const id in MARCAS) cm.appendChild(cartaoMarca(id, MARCAS[id]));
   for (const id in ESTILOS) ce.appendChild(cartaoEstilo(id, ESTILOS[id]));
+  const m = MARCAS[perfil.marca], e = ESTILOS[perfil.estilo];
+  document.getElementById('detalhe').innerHTML =
+    '<b>' + m.nome + ' + ' + e.nome + '</b> &middot; ' + e.resumo + '.';
 }
 
 document.getElementById('jogar').onclick = () => {
-  try { localStorage.setItem(CHAVE_PERFIL, JSON.stringify(perfil)); } catch (e) {}
-  irPara('/game' + qs.replace(/([?&])menu=1&?/, '$1').replace(/[?&]$/, ''));
+  try { localStorage.setItem(CHAVE, JSON.stringify(perfil)); } catch (e) {}
+  irJogo();
 };
-
-document.getElementById('meu').onclick = () => {
-  irPara('/game' + qs.replace(/([?&])menu=1&?/, '$1').replace(/[?&]$/, ''));
-};
-
-document.getElementById('voltar').onclick = () => {
-  irPara('/game' + qs.replace(/([?&])menu=1&?/, '$1').replace(/[?&]$/, ''));
-};
+document.getElementById('meu').onclick = irJogo;
 
 desenhar();
 </script>
