@@ -63,7 +63,7 @@ copiar(path.join(CACHE, 'LICENSE-node.txt'), path.join(APP, 'LICENSE-node.txt'))
 for (const f of ['package.json', 'package-lock.json', 'icon-192.png', 'icon-512.png', 'LICENSE', 'README.md']) {
   copiar(path.join(ROOT, f), path.join(APP, f));
 }
-for (const f of ['server.mjs', 'vigem.mjs', 'certs.mjs']) {
+for (const f of fs.readdirSync(path.join(ROOT, 'src')).filter(x => x.endsWith('.mjs'))) {
   copiar(path.join(ROOT, 'src', f), path.join(APP, 'src', f));
 }
 for (const f of ['ViGEmClient.dll', 'README.md']) {

@@ -42,6 +42,35 @@ Prefere não instalar nada? Baixe o `.zip` portátil, descompacte e rode `PixelP
 
 > O instalador usa o Node LTS oficial (licença MIT, incluída no pacote).
 
+## Editor de layout
+
+Toque em **✎ Editar** e os controles ficam translúcidos, pra você ver o jogo atrás
+deles enquanto arruma.
+
+- **arraste** qualquer botão pra mover
+- **−** e **+** mudam o tamanho do botão selecionado
+- **👁** oculta o botão (ótil pra tirar o que você nunca usa do caminho)
+- **Resetar** volta tudo pro lugar de fábrica
+- **OK** sai do editor
+
+Cada botão é independente: pode afastar o △ do ○, subir o analógico, encolher o
+L2. Tudo fica salvo no celular e volta igual na próxima vez.
+
+## Macros (combos)
+
+No editor, toque em **+ Macro**:
+
+1. **● Gravar** — o controle fica disponível pra você apertar os botões na ordem
+2. aperte o combo (ex.: △, △, ✕) e toque em **■ Parar**
+3. dê um nome, **Salvar**
+
+Nasce um botão novo (roxo) no centro da tela, que você arrasta e dimensiona como
+qualquer outro. Apertar ele dispara o combo inteiro.
+
+O tempo que você segura cada botão na gravação vira o tempo do passo. A sequência
+é executada **no PC**, não no celular — então o intervalo entre os comandos é
+preciso, independente do desempenho do telefone.
+
 ## Dois jogadores (P1 e P2)
 
 Conecte **até dois celulares** ao mesmo tempo, cada um com o seu controle:

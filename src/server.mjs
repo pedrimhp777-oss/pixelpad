@@ -18,6 +18,7 @@ import koffi from 'koffi';
 import qrcode from 'qrcode-terminal';
 import { WebSocketServer } from 'ws';
 import { createClient } from './vigem.mjs';
+import { gamePage } from './game-page.mjs';
 import { ensureCerts } from './certs.mjs';
 
 const LOG = new URL('../phone-pad.log', import.meta.url).pathname.replace(/^\//, '');
@@ -64,7 +65,7 @@ function pegarSlot(ws) {
     if (vi) {
       try { pad = vi.addPad(); } catch (e) { logLine(`P${i + 1} falhou: ` + e.message); }
     }
-    slots[i] = { n: i + 1, pad, ws };
+    slots[i] = { n: i + 1, pad, ws, ultimo: null, macro: {}, timers: [] };
     logLine(`controle P${i + 1} conectado`);
     return slots[i];
   }
@@ -73,6 +74,7 @@ function pegarSlot(ws) {
 
 function liberarSlot(slot) {
   if (!slot) return;
+  limparMacro(slot);
   if (slot.pad) {
     try { slot.pad.reset(); } catch {}
     try { slot.pad.remove(); } catch {}
@@ -82,6 +84,44 @@ function liberarSlot(slot) {
 }
 
 const slotsOcupados = () => slots.filter(Boolean).length;
+
+// ---------------- estado + macros ----------------
+const ESTADO_ZERO = { a: 0, b: 0, x: 0, y: 0, lb: 0, rb: 0, back: 0, start: 0,
+  du: 0, dd: 0, dl: 0, dr: 0, lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 };
+
+/** Junta o que o celular esta mandando com os botoes que a macro esta apertando. */
+function enviarEstado(slot) {
+  if (!slot || !slot.pad) return;
+  const s = Object.assign({}, slot.ultimo || ESTADO_ZERO);
+  for (const k in slot.macro) if (slot.macro[k]) s[k] = 1;
+  try { slot.pad.update(s); } catch (e) { logLine('pad.update falhou: ' + e.message); }
+}
+
+function limparMacro(slot) {
+  if (!slot) return;
+  for (const t of slot.timers || []) clearTimeout(t);
+  slot.timers = [];
+  slot.macro = {};
+}
+
+/** Executa a sequencia no PC: o tempo do combo nao depende do celular. */
+function rodarMacro(slot, passos) {
+  if (!slot || !slot.pad || !Array.isArray(passos)) return;
+  limparMacro(slot);
+  let atraso = 0;
+  for (const p of passos.slice(0, 40)) {
+    if (!p || !p.b) continue;
+    const b = String(p.b);
+    const ms = Math.max(20, Math.min(3000, (p.ms | 0) || 80));
+    const gap = Math.max(0, Math.min(2000, p.gap | 0));
+    slot.timers.push(setTimeout(() => { slot.macro[b] = 1; enviarEstado(slot); }, atraso));
+    atraso += ms;
+    slot.timers.push(setTimeout(() => { slot.macro[b] = 0; enviarEstado(slot); }, atraso));
+    atraso += gap;
+  }
+  slot.timers.push(setTimeout(() => { slot.macro = {}; enviarEstado(slot); }, atraso + 20));
+  logLine(`P${slot.n} macro com ${passos.length} passo(s)`);
+}
 
 const VERSAO = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version; } catch { return '0'; } })();
 
@@ -239,302 +279,7 @@ const SVG = {
   cross: '<svg viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
 };
 
-const GAME_PAGE = String.raw`<!doctype html><html lang="pt-BR"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#0d0f12">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" href="/icon.svg">
-<link rel="apple-touch-icon" href="/icon.svg">
-<title>Gamepad</title>
-<style>` + CSS + `
-  #stage { position: absolute; inset: 0; overflow: hidden; }
-  .node { position: absolute; transform-origin: center center; }
-  .node.sel { outline: 2px dashed #2b6df6; outline-offset: 6px; border-radius: 8px; }
-
-  .sh { display: flex; flex-direction: column; gap: 1.4vmin; }
-  .sh button { width: 21vmin; height: 10vmin; border-radius: 2.4vmin; font-size: 3.2vmin; letter-spacing: .2vmin; }
-  .sh button.trig { background: #14202e; }
-
-  .stick { border-radius: 50%; width: 30vmin; height: 30vmin;
-    background: radial-gradient(circle, #1b222c 0%, #101620 72%); border: 1px solid #263140; touch-action: none; }
-  .stick .knob { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; border-radius: 50%;
-    background: #2b6df6; opacity: .7; transform: translate(-50%,-50%); pointer-events: none; }
-
-  #dpad { display: grid; grid-template-columns: repeat(3, 9.6vmin); grid-template-rows: repeat(3, 9.6vmin); gap: .4vmin; }
-  #dpad button { border-radius: 2vmin; font-size: 4vmin; background: #151b24; }
-  #dpad .sp { visibility: hidden; }
-
-  #abxy { display: grid; grid-template-columns: repeat(3, 10.8vmin); grid-template-rows: repeat(3, 10.8vmin); }
-  #abxy button { border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 1.9vmin; }
-  #abxy svg { width: 100%; height: 100%; display: block; }
-  #abxy .sp { visibility: hidden; }
-  #abxy .y { background: #10291d; color: #4de3a0; }
-  #abxy .x { background: #341025; color: #ff7ac8; }
-  #abxy .b { background: #341018; color: #ff6b81; }
-  #abxy .a { background: #101f34; color: #6aa9ff; }
-
-  #tp { width: 40vmin; height: 24vmin; border-radius: 2.6vmin; background: #121821;
-    border: 1px solid #263140; touch-action: none; display: flex; align-items: center; justify-content: center; }
-  #tp span { font-size: 2.1vmin; letter-spacing: .4vmin; color: #3a4656; text-transform: uppercase; pointer-events: none; }
-  #tp .knob { position: absolute; left: 50%; top: 50%; width: 6vmin; height: 6vmin; border-radius: 50%;
-    background: #2b6df6; opacity: .5; transform: translate(-50%,-50%); pointer-events: none; }
-
-  #cbtn { display: flex; gap: 4vmin; }
-  #cbtn button { width: 22vmin; height: 11vmin; border-radius: 2.4vmin; font-size: 2.9vmin; }
-  #ps { width: 15vmin; height: 15vmin; border-radius: 50%; font-size: 2.9vmin; background: #1a2432; }
-
-  #hud { position: absolute; top: 1.5vmin; left: 50%; transform: translateX(-50%); display: flex;
-    gap: 1.6vmin; z-index: 20; }
-  #hud button { padding: 1.4vmin 2.4vmin; border-radius: 1.6vmin; font-size: 2.4vmin; background: #17202b; }
-  #st { position: absolute; bottom: 1.4vmin; left: 50%; transform: translateX(-50%); font-size: 2.2vmin;
-    color: #4b5766; z-index: 6; }
-  #editor { position: absolute; bottom: 0; left: 0; right: 0; display: none; gap: 2vmin; padding: 2vmin;
-    background: #0b1017ee; z-index: 30; align-items: center; justify-content: center; flex-wrap: wrap; }
-  #editor button { padding: 2vmin 3.4vmin; border-radius: 2vmin; font-size: 3vmin; background: #1b2a3d; }
-  #editor span { font-size: 2.6vmin; color: #7db6ff; }
-  body.editing #editor { display: flex; }
-  body.editing .node { cursor: move; }
-  #rot { display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
-    text-align: center; font-size: 5vmin; padding: 10vmin; color: #7db6ff; }
-  @media (orientation: portrait) { #stage { display: none; } #rot { display: flex; } }
-</style></head><body>
-<div id="stage">
-  <div class="node sh" id="lsh" data-move><button class="trig" data-t="lt">L2</button><button data-b="lb">L1</button></div>
-  <div class="node sh" id="rsh" data-move><button data-b="rb">R1</button><button class="trig" data-t="rt">R2</button></div>
-
-  <div class="node stick" id="ls" data-move><div class="knob"></div></div>
-  <div class="node" id="dpad" data-move>
-    <div class="sp"></div><button data-b="du">&#9650;</button><div class="sp"></div>
-    <button data-b="dl">&#9664;</button><div class="sp"></div><button data-b="dr">&#9654;</button>
-    <div class="sp"></div><button data-b="dd">&#9660;</button><div class="sp"></div>
-  </div>
-
-  <div class="node" id="abxy" data-move>
-    <div class="sp"></div><button class="y" data-b="y">` + SVG.triangle + `</button><div class="sp"></div>
-    <button class="x" data-b="x">` + SVG.square + `</button><div class="sp"></div><button class="b" data-b="b">` + SVG.circle + `</button>
-    <div class="sp"></div><button class="a" data-b="a">` + SVG.cross + `</button><div class="sp"></div>
-  </div>
-  <div class="node stick" id="rs" data-move><div class="knob"></div></div>
-
-  <div class="node" id="tp" data-move><div class="knob"></div><span>touchpad &middot; c&acirc;mera</span></div>
-  <div class="node" id="cbtn" data-move><button data-b="back">SHARE</button><button data-b="start">OPTIONS</button></div>
-  <div class="node" id="ps" data-move><button data-b="start" style="width:100%;height:100%;border-radius:50%;background:transparent">PS</button></div>
-
-  <div id="hud">
-    <button id="bfull">&#9974; Tela cheia</button>
-    <button id="bedit">&#9998; Editar</button>
-  </div>
-  <div id="st"></div>
-</div>
-<div id="editor">
-  <span id="selLabel">toque num controle</span>
-  <button id="bminus">&minus;</button>
-  <button id="bplus">+</button>
-  <button id="breset">Resetar</button>
-  <button id="bdone">OK</button>
-</div>
-<div id="rot">Gire o celular<br>para a horizontal</div>
-<script>
-const st = document.getElementById('st');
-const stage = document.getElementById('stage');
-const state = {a:0,b:0,x:0,y:0,lb:0,rb:0,back:0,start:0,du:0,dd:0,dl:0,dr:0,
-               lx:0,ly:0,rx:0,ry:0,lt:0,rt:0};
-let ws, dirty = false, editing = false, selected = null;
-
-// ---------- layout salvo no celular
-const LKEY = 'padLayoutV1';
-const DEF = {
-  lsh: { x: 10, y: 12, s: 1 }, rsh: { x: 90, y: 12, s: 1 },
-  ls:  { x: 20, y: 40, s: 1 }, dpad: { x: 20, y: 76, s: 1 },
-  abxy:{ x: 80, y: 40, s: 1 }, rs:  { x: 80, y: 78, s: 1 },
-  tp:  { x: 50, y: 30, s: 1 }, cbtn: { x: 50, y: 60, s: 1 }, ps: { x: 50, y: 82, s: 1 },
-};
-let layout = load();
-function load() {
-  try { const j = JSON.parse(localStorage.getItem(LKEY)); if (j) return j; } catch (e) {}
-  return JSON.parse(JSON.stringify(DEF));
-}
-function save() { try { localStorage.setItem(LKEY, JSON.stringify(layout)); } catch (e) {} }
-function apply() {
-  for (const id in layout) {
-    const el = document.getElementById(id); if (!el) continue;
-    const L = layout[id];
-    el.style.left = L.x + '%';
-    el.style.top = L.y + '%';
-    el.style.transform = 'translate(-50%,-50%) scale(' + L.s + ')';
-  }
-  for (const id in layout) {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('sel', editing && selected === id);
-  }
-}
-apply();
-
-// ---------- conexao
-function connect() {
-  const extra = location.search ? location.search + '&pad=1' : '?pad=1';
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' + extra);
-  ws.onopen = () => { st.textContent = ''; };
-  ws.onclose = ev => {
-    if (ev && ev.code === 4002) { telaLotado(); return; }
-    st.textContent = 'reconectando...';
-    setTimeout(connect, 800);
-  };
-  ws.onerror = () => ws.close();
-  ws.onmessage = ev => {
-    let m; try { m = JSON.parse(ev.data); } catch { return; }
-    if (m.t === 'player') marcarJogador(m.n, m.max);
-    if (m.t === 'lotado') telaLotado(m.max || 2);
-  };
-}
-
-function marcarJogador(n, max) {
-  const cor = n === 1 ? '#2f6df6' : '#e2453c';
-  st.textContent = 'P' + n;
-  st.style.color = cor;
-  st.style.background = n === 1 ? 'rgba(47,109,246,.18)' : 'rgba(226,69,60,.18)';
-  st.style.border = '1px solid ' + cor;
-  st.style.borderRadius = '6px';
-  st.style.padding = '2px 8px';
-  st.style.fontWeight = '700';
-  document.title = 'PixelPad P' + n;
-}
-
-function telaLotado(max) {
-  const d = document.createElement('div');
-  d.style.cssText = 'position:fixed;inset:0;background:#0d0f12f2;color:#e6e8ec;display:flex;'
-    + 'flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;'
-    + 'text-align:center;font-size:15px;z-index:9999';
-  d.innerHTML = '<b style="font-size:18px">Ja tem ' + (max || 2) + ' controles conectados</b>'
-    + '<span style="color:#8a94a3;font-size:13px;max-width:420px;line-height:1.6">'
-    + (max || 2) + ' e o limite: um celular como P1 e outro como P2. '
-    + 'Desligue um deles (ou feche o app) e toque aqui.</span>';
-  d.onclick = () => location.reload();
-  document.body.appendChild(d);
-}
-connect();
-function push() { if (ws && ws.readyState === 1) { dirty = false; ws.send(JSON.stringify({ t: 'pad', d: state })); } }
-setInterval(() => { if (dirty) push(); }, 16);
-
-// ---------- botoes
-function bindButton(el, key, value) {
-  const down = e => {
-    e.preventDefault();
-    if (editing) { select(el.closest('.node')); return; }
-    state[key] = value; el.classList.add('on'); push();
-    if (navigator.vibrate) navigator.vibrate(8);
-  };
-  const up = e => {
-    if (e) e.preventDefault();
-    if (editing) return;
-    state[key] = 0; el.classList.remove('on'); push();
-  };
-  el.addEventListener('pointerdown', down);
-  el.addEventListener('pointerup', up);
-  el.addEventListener('pointercancel', up);
-  el.addEventListener('pointerleave', up);
-}
-document.querySelectorAll('[data-b]').forEach(el => bindButton(el, el.dataset.b, 1));
-document.querySelectorAll('[data-t]').forEach(el => bindButton(el, el.dataset.t, 255));
-
-// ---------- analogicos
-function axis(el, xKey, yKey, knobSel) {
-  const knob = el.querySelector(knobSel);
-  let id = null, cx = 0, cy = 0, R = 1;
-  const move = e => {
-    let dx = (e.clientX - cx) / R, dy = (e.clientY - cy) / R;
-    const m = Math.hypot(dx, dy);
-    if (m > 1) { dx /= m; dy /= m; }
-    state[xKey] = Math.round(dx * 32767);
-    state[yKey] = Math.round(-dy * 32767);
-    dirty = true;
-    knob.style.transform = 'translate(calc(-50% + ' + (dx * R * 0.55) + 'px), calc(-50% + ' + (dy * R * 0.55) + 'px))';
-  };
-  el.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    if (editing) { select(el); return; }
-    const r = el.getBoundingClientRect();
-    cx = r.left + r.width / 2; cy = r.top + r.height / 2; R = r.width / 2;
-    id = e.pointerId; el.setPointerCapture(id); move(e);
-  });
-  el.addEventListener('pointermove', e => { if (!editing && e.pointerId === id) move(e); });
-  const up = e => {
-    if (editing || (e && e.pointerId !== id)) return;
-    id = null; state[xKey] = 0; state[yKey] = 0; dirty = true;
-    knob.style.transform = 'translate(-50%,-50%)';
-    push();
-  };
-  el.addEventListener('pointerup', up);
-  el.addEventListener('pointercancel', up);
-}
-axis(document.getElementById('ls'), 'lx', 'ly', '.knob');
-axis(document.getElementById('rs'), 'rx', 'ry', '.knob');
-axis(document.getElementById('tp'), 'rx', 'ry', '.knob');
-
-// ---------- editor: arrastar e redimensionar
-function select(node) {
-  if (!node || !node.id) return;
-  selected = node.id;
-  document.getElementById('selLabel').textContent = node.id;
-  apply();
-}
-stage.querySelectorAll('[data-move]').forEach(node => {
-  let dragging = false, offx = 0, offy = 0;
-  node.addEventListener('pointerdown', e => {
-    if (!editing) return;
-    e.preventDefault(); e.stopPropagation();
-    select(node);
-    const r = stage.getBoundingClientRect();
-    const L = layout[node.id];
-    const px = L.x / 100 * r.width, py = L.y / 100 * r.height;
-    offx = e.clientX - r.left - px;
-    offy = e.clientY - r.top - py;
-    dragging = true;
-    node.setPointerCapture(e.pointerId);
-  });
-  node.addEventListener('pointermove', e => {
-    if (!editing || !dragging) return;
-    e.preventDefault();
-    const r = stage.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, (e.clientX - r.left - offx) / r.width * 100));
-    const y = Math.max(0, Math.min(100, (e.clientY - r.top - offy) / r.height * 100));
-    layout[node.id].x = Math.round(x * 10) / 10;
-    layout[node.id].y = Math.round(y * 10) / 10;
-    apply();
-  });
-  const stop = () => { if (dragging) { dragging = false; save(); } };
-  node.addEventListener('pointerup', stop);
-  node.addEventListener('pointercancel', stop);
-});
-
-document.getElementById('bedit').onclick = () => {
-  editing = !editing;
-  document.body.classList.toggle('editing', editing);
-  document.getElementById('bedit').textContent = editing ? '\u2714 Pronto' : '\u270E Editar';
-  if (!editing) { selected = null; save(); }
-  apply();
-};
-document.getElementById('bdone').onclick = () => document.getElementById('bedit').click();
-document.getElementById('bplus').onclick = () => { if (selected) { layout[selected].s = Math.min(2.6, +(layout[selected].s + 0.12).toFixed(2)); apply(); save(); } };
-document.getElementById('bminus').onclick = () => { if (selected) { layout[selected].s = Math.max(0.4, +(layout[selected].s - 0.12).toFixed(2)); apply(); save(); } };
-document.getElementById('breset').onclick = () => { layout = JSON.parse(JSON.stringify(DEF)); selected = null; apply(); save(); };
-
-// ---------- tela cheia
-function goFull() {
-  const el = document.documentElement;
-  const p = el.requestFullscreen && el.requestFullscreen();
-  if (p && p.then) p.then(() => {
-    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
-  }).catch(() => {});
-}
-document.getElementById('bfull').onclick = goFull;
-document.addEventListener('pointerdown', () => { if (!document.fullscreenElement) goFull(); }, { once: true });
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
-</script></body></html>`;
+const GAME_PAGE = gamePage({ CSS, SVG });
 
 const MANIFEST = JSON.stringify({
   name: 'Gamepad do PC',
@@ -734,7 +479,8 @@ function onSocket(ws, req) {
       else if (m.t === 'clk') click(m.b);
       else if (m.t === 'scr') scroll(m.dy);
       else if (m.t === 'key') key(m.vk);
-      else if (m.t === 'pad') { if (slot && slot.pad) slot.pad.update(m.d); }
+      else if (m.t === 'pad') { if (slot) { slot.ultimo = m.d; enviarEstado(slot); } }
+      else if (m.t === 'macro') { if (slot) rodarMacro(slot, m.steps); }
     } catch (e) { logLine('erro no handler: ' + (e && e.message)); }
   });
 }
