@@ -1,6 +1,8 @@
 // Driver ViGEm acessado direto da DLL nativa - sem Python, sem .NET.
 //
-// Cria um controle Xbox 360 virtual e atualiza o estado a 60+ Hz.
+// Um cliente ViGEm pode hospedar varios controles virtuais ao mesmo tempo.
+// E assim que dois celulares viram P1 e P2, cada um no seu controle do Xbox.
+//
 // Requer o driver "ViGEmBus" instalado (https://github.com/nefarius/ViGEmBus).
 
 import koffi from 'koffi';
@@ -14,7 +16,7 @@ const BUTTONS = {
   a: 0x1000, b: 0x2000, x: 0x4000, y: 0x8000,
 };
 
-export function createPad(dllPath) {
+export function createClient(dllPath) {
   const lib = koffi.load(dllPath);
 
   const REPORT = koffi.struct('XUSB_REPORT', {
@@ -34,40 +36,59 @@ export function createPad(dllPath) {
 
   const client = alloc();
   if (!client) throw new Error('vigem_alloc falhou (driver ViGEmBus nao instalado?)');
-  let r = connect(client);
-  if (r !== ERROR_NONE) { free(client); throw new Error('vigem_connect falhou: 0x' + (r >>> 0).toString(16)); }
-
-  const target = x360alloc();
-  r = targetAdd(client, target);
-  if (r !== ERROR_NONE) { disconnect(client); free(client); throw new Error('vigem_target_add falhou: 0x' + (r >>> 0).toString(16)); }
-
-  const report = { wButtons: 0, bLeftTrigger: 0, bRightTrigger: 0, sThumbLX: 0, sThumbLY: 0, sThumbRX: 0, sThumbRY: 0 };
+  const r = connect(client);
+  if (r !== ERROR_NONE) {
+    free(client);
+    throw new Error('vigem_connect falhou: 0x' + (r >>> 0).toString(16));
+  }
 
   const clampAxis = v => Math.max(-32768, Math.min(32767, Math.round(v || 0)));
   const clampTrig = v => Math.max(0, Math.min(255, Math.round(v || 0)));
 
   return {
-    /** Recebe o estado do celular: {a,b,x,y,lb,rb,back,start,du,dd,dl,dr,lx,ly,rx,ry,lt,rt} */
-    update(s) {
-      let bits = 0;
-      for (const k in BUTTONS) if (s[k]) bits |= BUTTONS[k];
-      report.wButtons = bits;
-      report.bLeftTrigger = clampTrig(s.lt);
-      report.bRightTrigger = clampTrig(s.rt);
-      report.sThumbLX = clampAxis(s.lx);
-      report.sThumbLY = clampAxis(s.ly);
-      report.sThumbRX = clampAxis(s.rx);
-      report.sThumbRY = clampAxis(s.ry);
-      return x360update(client, target, report) === ERROR_NONE;
-    },
-    /** Solta tudo (usado quando o celular desconecta). */
-    reset() {
-      for (const k in report) report[k] = 0;
-      x360update(client, target, report);
+    /** Cria mais um controle Xbox 360 virtual. */
+    addPad() {
+      const target = x360alloc();
+      const erro = targetAdd(client, target);
+      if (erro !== ERROR_NONE) {
+        targetFree(target);
+        throw new Error('vigem_target_add falhou: 0x' + (erro >>> 0).toString(16));
+      }
+
+      const report = {
+        wButtons: 0, bLeftTrigger: 0, bRightTrigger: 0,
+        sThumbLX: 0, sThumbLY: 0, sThumbRX: 0, sThumbRY: 0,
+      };
+
+      const enviar = () => x360update(client, target, report) === ERROR_NONE;
+
+      return {
+        /** Recebe {a,b,x,y,lb,rb,back,start,du,dd,dl,dr,lx,ly,rx,ry,lt,rt} */
+        update(s) {
+          let bits = 0;
+          for (const k in BUTTONS) if (s[k]) bits |= BUTTONS[k];
+          report.wButtons = bits;
+          report.bLeftTrigger = clampTrig(s.lt);
+          report.bRightTrigger = clampTrig(s.rt);
+          report.sThumbLX = clampAxis(s.lx);
+          report.sThumbLY = clampAxis(s.ly);
+          report.sThumbRX = clampAxis(s.rx);
+          report.sThumbRY = clampAxis(s.ry);
+          return enviar();
+        },
+        /** Solta tudo (quando o celular desconecta). */
+        reset() {
+          for (const k in report) report[k] = 0;
+          enviar();
+        },
+        /** Remove o controle virtual: o Windows deixa de ve-lo. */
+        remove() {
+          try { targetRemove(client, target); } catch {}
+          try { targetFree(target); } catch {}
+        },
+      };
     },
     destroy() {
-      try { targetRemove(client, target); } catch {}
-      try { targetFree(target); } catch {}
       try { disconnect(client); } catch {}
       try { free(client); } catch {}
     },

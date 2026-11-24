@@ -17,7 +17,7 @@ import crypto from 'node:crypto';
 import koffi from 'koffi';
 import qrcode from 'qrcode-terminal';
 import { WebSocketServer } from 'ws';
-import { createPad } from './vigem.mjs';
+import { createClient } from './vigem.mjs';
 import { ensureCerts } from './certs.mjs';
 
 const LOG = new URL('../phone-pad.log', import.meta.url).pathname.replace(/^\//, '');
@@ -39,18 +39,49 @@ let accX = 0, accY = 0;
 const udp = null;
 
 // ---------------- controle virtual (ViGEm) ----------------
-let pad = null;
+// ---------------- controles virtuais (ate 2 celulares: P1 e P2) ----------------
+const MAX_PADS = 2;
+let vi = null;
 let padErro = null;
 try {
-  pad = createPad(path.join(ROOT, 'native', 'ViGEmClient.dll'));
-  logLine('ViGEm OK: controle Xbox 360 virtual criado');
+  vi = createClient(path.join(ROOT, 'native', 'ViGEmClient.dll'));
+  logLine('ViGEm OK: pronto para criar controles virtuais');
 } catch (e) {
   padErro = e.message;
   logLine('ViGEm indisponivel: ' + e.message);
-  console.log('\n  [!] Nao consegui criar o controle virtual: ' + e.message);
+  console.log('\n  [!] Nao consegui falar com o driver ViGEmBus: ' + e.message);
   console.log('      O trackpad continua funcionando; o gamepad nao.\n');
 }
-const sendPad = obj => { if (!pad) return; try { pad.update(obj); } catch (e) { logLine('pad.update falhou: ' + e.message); } };
+
+// slots[0] = P1, slots[1] = P2. O controle virtual so existe enquanto o
+// celular esta conectado - assim o Windows nao mostra controle fantasma.
+const slots = new Array(MAX_PADS).fill(null);
+
+function pegarSlot(ws) {
+  for (let i = 0; i < MAX_PADS; i++) {
+    if (slots[i]) continue;
+    let pad = null;
+    if (vi) {
+      try { pad = vi.addPad(); } catch (e) { logLine(`P${i + 1} falhou: ` + e.message); }
+    }
+    slots[i] = { n: i + 1, pad, ws };
+    logLine(`controle P${i + 1} conectado`);
+    return slots[i];
+  }
+  return null;
+}
+
+function liberarSlot(slot) {
+  if (!slot) return;
+  if (slot.pad) {
+    try { slot.pad.reset(); } catch {}
+    try { slot.pad.remove(); } catch {}
+  }
+  slots[slot.n - 1] = null;
+  logLine(`controle P${slot.n} liberado`);
+}
+
+const slotsOcupados = () => slots.filter(Boolean).length;
 
 const VERSAO = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version; } catch { return '0'; } })();
 
@@ -345,10 +376,45 @@ apply();
 
 // ---------- conexao
 function connect() {
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' + location.search);
+  const extra = location.search ? location.search + '&pad=1' : '?pad=1';
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' + extra);
   ws.onopen = () => { st.textContent = ''; };
-  ws.onclose = () => { st.textContent = 'reconectando...'; setTimeout(connect, 800); };
+  ws.onclose = ev => {
+    if (ev && ev.code === 4002) { telaLotado(); return; }
+    st.textContent = 'reconectando...';
+    setTimeout(connect, 800);
+  };
   ws.onerror = () => ws.close();
+  ws.onmessage = ev => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (m.t === 'player') marcarJogador(m.n, m.max);
+    if (m.t === 'lotado') telaLotado(m.max || 2);
+  };
+}
+
+function marcarJogador(n, max) {
+  const cor = n === 1 ? '#2f6df6' : '#e2453c';
+  st.textContent = 'P' + n;
+  st.style.color = cor;
+  st.style.background = n === 1 ? 'rgba(47,109,246,.18)' : 'rgba(226,69,60,.18)';
+  st.style.border = '1px solid ' + cor;
+  st.style.borderRadius = '6px';
+  st.style.padding = '2px 8px';
+  st.style.fontWeight = '700';
+  document.title = 'PixelPad P' + n;
+}
+
+function telaLotado(max) {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;inset:0;background:#0d0f12f2;color:#e6e8ec;display:flex;'
+    + 'flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;'
+    + 'text-align:center;font-size:15px;z-index:9999';
+  d.innerHTML = '<b style="font-size:18px">Ja tem ' + (max || 2) + ' controles conectados</b>'
+    + '<span style="color:#8a94a3;font-size:13px;max-width:420px;line-height:1.6">'
+    + (max || 2) + ' e o limite: um celular como P1 e outro como P2. '
+    + 'Desligue um deles (ou feche o app) e toque aqui.</span>';
+  d.onclick = () => location.reload();
+  document.body.appendChild(d);
 }
 connect();
 function push() { if (ws && ws.readyState === 1) { dirty = false; ws.send(JSON.stringify({ t: 'pad', d: state })); } }
@@ -639,10 +705,26 @@ function onSocket(ws, req) {
   }
   logLine(`WS conectado de ${ip}`);
   liveClients.add(ws);
+
+  // so a pagina do gamepad pede um controle (a do trackpad nao consome vaga)
+  const querControle = url.searchParams.get('pad') === '1';
+  let slot = null;
+  if (querControle) {
+    slot = pegarSlot(ws);
+    if (!slot) {
+      try { ws.send(JSON.stringify({ t: 'lotado', max: MAX_PADS })); } catch {}
+      logLine(`recusado: ${MAX_PADS} controles ja conectados (${ip})`);
+      setTimeout(() => { try { ws.close(4002, 'lotado'); } catch {} }, 200);
+      liveClients.delete(ws);
+      return;
+    }
+    try { ws.send(JSON.stringify({ t: 'player', n: slot.n, max: MAX_PADS })); } catch {}
+  }
+
   ws.on('close', () => {
     liveClients.delete(ws);
-    if (liveClients.size === 0 && pad) { try { pad.reset(); } catch {} }
-    logLine(`WS desconectado (${liveClients.size} ativo)`);
+    liberarSlot(slot);
+    logLine(`WS desconectado (${liveClients.size} ativo, ${slotsOcupados()} controle(s))`);
   });
   ws.on('error', e => logLine('ws erro: ' + e.message));
   ws.on('message', raw => {
@@ -652,7 +734,7 @@ function onSocket(ws, req) {
       else if (m.t === 'clk') click(m.b);
       else if (m.t === 'scr') scroll(m.dy);
       else if (m.t === 'key') key(m.vk);
-      else if (m.t === 'pad') sendPad(m.d);
+      else if (m.t === 'pad') { if (slot && slot.pad) slot.pad.update(m.d); }
     } catch (e) { logLine('erro no handler: ' + (e && e.message)); }
   });
 }

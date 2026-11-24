@@ -42,6 +42,21 @@ Prefere não instalar nada? Baixe o `.zip` portátil, descompacte e rode `PixelP
 
 > O instalador usa o Node LTS oficial (licença MIT, incluída no pacote).
 
+## Dois jogadores (P1 e P2)
+
+Conecte **até dois celulares** ao mesmo tempo, cada um com o seu controle:
+
+- o primeiro que conectar vira **P1** (controle virtual número 1)
+- o segundo vira **P2** (controle virtual número 2)
+- o terceiro é recusado com um aviso na tela — dois é o limite
+- cada tela mostra o seu P1/P2 no rodapé, então ninguém se confunde
+
+Os controles virtuais só existem enquanto o celular está conectado: quando um sai,
+o Windows deixa de ver aquele controle e a vaga fica livre para o próximo.
+
+Quem conecta primeiro pega P1. Para trocar, feche o app do P1 e reconecte na ordem
+que quiser. Funciona com dois celulares, ou um celular + o navegador do PC.
+
 ## App Android (recomendado)
 
 O app tira o navegador da jogada: abre em tela cheia, acha o PC sozinho na rede e
