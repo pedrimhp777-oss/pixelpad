@@ -69,6 +69,13 @@ for (const f of ['server.mjs', 'vigem.mjs', 'certs.mjs']) {
 for (const f of ['ViGEmClient.dll', 'README.md']) {
   copiar(path.join(ROOT, 'native', f), path.join(APP, 'native', f));
 }
+// o APK vai junto: o proprio servidor entrega ele em /android
+const apkSrc = path.join(ROOT, 'android', 'pixelpad.apk');
+if (fs.existsSync(apkSrc)) {
+  copiar(apkSrc, path.join(APP, 'android', 'pixelpad.apk'));
+} else {
+  console.log('     (sem APK ainda - rode npm run build:apk para incluir o app Android)');
+}
 
 step('Instalando dependencias de producao');
 execFileSync('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: APP, stdio: 'inherit', shell: true });
@@ -138,12 +145,15 @@ Name: "{group}\\Desinstalar {#AppName}"; Filename: "{uninstallexe}"
 Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "PixelPad"; ValueData: """{app}\\PixelPad.vbs"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad"""; Flags: runhidden
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall add rule name=""PixelPad"" dir=in action=allow protocol=TCP localport=8080,8443 profile=private"; Flags: runhidden
+Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad TCP"""; Flags: runhidden
+Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad UDP"""; Flags: runhidden
+Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall add rule name=""PixelPad TCP"" dir=in action=allow protocol=TCP localport=8080,8443 profile=private"; Flags: runhidden
+Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall add rule name=""PixelPad UDP"" dir=in action=allow protocol=UDP localport=9999 profile=private"; Flags: runhidden
 Filename: "{app}\\PixelPad.vbs"; Description: "Abrir o PixelPad agora"; Flags: shellexec nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad"""; Flags: runhidden
+Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad TCP"""; Flags: runhidden
+Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad UDP"""; Flags: runhidden
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\\data"

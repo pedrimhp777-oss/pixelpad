@@ -12,6 +12,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import dgram from 'node:dgram';
 import crypto from 'node:crypto';
 import koffi from 'koffi';
 import qrcode from 'qrcode-terminal';
@@ -51,6 +52,8 @@ try {
 }
 const sendPad = obj => { if (!pad) return; try { pad.update(obj); } catch (e) { logLine('pad.update falhou: ' + e.message); } };
 
+const VERSAO = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version; } catch { return '0'; } })();
+
 // ---------------- pareamento ----------------
 const DATA = path.join(ROOT, 'data');
 try { fs.mkdirSync(DATA, { recursive: true }); } catch {}
@@ -64,6 +67,31 @@ if (!TOKEN || TOKEN.length < 16) {
 
 process.on('uncaughtException', e => { logLine('CRASH uncaught: ' + (e && e.stack || e)); });
 process.on('unhandledRejection', e => { logLine('CRASH rejection: ' + (e && e.stack || e)); });
+
+// ---------------- descoberta na rede local ----------------
+// O app Android manda um broadcast e o PC responde com IP, porta e token.
+// E o que dispensa QR code e digitacao de endereco dentro do app.
+const DISCOVERY_PORT = 9999;
+try {
+  const disco = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+  disco.on('message', (msg, rinfo) => {
+    const txt = msg.toString().trim();
+    if (!txt.startsWith('PIXELPAD?')) return;
+    const resposta = 'PIXELPAD!' + JSON.stringify({
+      versao: VERSAO,
+      nome: os.hostname(),
+      ip: lanIP(),
+      porta: PORT,
+      portaHttps: serverS ? PORT_S : 0,
+      token: TOKEN,
+    });
+    try { disco.send(resposta, rinfo.port, rinfo.address); } catch {}
+  });
+  disco.on('error', e => logLine('descoberta: ' + e.message));
+  disco.bind(DISCOVERY_PORT, () => logLine('descoberta ativa na udp ' + DISCOVERY_PORT));
+} catch (e) {
+  logLine('descoberta desativada: ' + e.message);
+}
 
 function moveBy(dx, dy) {
   const speed = Math.hypot(dx, dy);
@@ -524,6 +552,11 @@ ${padErro ? `<div style="max-width:460px;text-align:center;background:#3a1d1d;bo
 <pre>${qr.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
 <p style="margin:0">mesmo Wi-Fi do PC &middot; <code>${alvo}</code></p>
 <div class="card">
+  <b>App Android</b> (recomendado, tira o navegador da jogada)<br>
+  abra <a href="/android">http://${lan}:${PORT}/android</a> no celular e instale o APK<br>
+  <span style="color:#4b5766;font-size:11px">ele acha este PC sozinho na rede, sem QR</span>
+</div>
+<div class="card">
   <b>Quer instalar como app na tela inicial?</b><br>
   1. abra <a href="http://${lan}:${PORT}/ca.crt">http://${lan}:${PORT}/ca.crt</a> no celular e instale como <b>CA</b><br>
   2. abra <a href="/app?t=${TOKEN}">/app</a> &middot; 3. menu &rsaquo; <b>Instalar aplicativo</b><br>
@@ -539,6 +572,21 @@ ${padErro ? `<div style="max-width:460px;text-align:center;background:#3a1d1d;bo
   if (u === '/sw.js') {
     res.writeHead(200, { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' });
     return res.end(SWJS);
+  }
+  if (u === '/android' || u === '/apk' || u === '/app.apk') {
+    const apk = path.join(ROOT, 'android', 'pixelpad.apk');
+    if (!fs.existsSync(apk)) {
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end('<meta charset="utf-8"><body style="background:#0d0f12;color:#e6e8ec;font-family:system-ui;padding:32px">Ainda nao existe APK nesta versao.<br>Use a pagina <a style="color:#7db6ff" href="/game">/game</a> no navegador.</body>');
+    }
+    const buf = fs.readFileSync(apk);
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.android.package-archive',
+      'Content-Length': buf.length,
+      'Content-Disposition': 'attachment; filename="PixelPad.apk"',
+      'Cache-Control': 'no-store',
+    });
+    return res.end(buf);
   }
   if (u === '/ca.crt' || u === '/ca.ctr' || u === '/cert' || u === '/certificado') {
     return serveFile(res, 'certs/ca.crt', 'application/x-x509-ca-cert');
@@ -558,7 +606,7 @@ ${padErro ? `<div style="max-width:460px;text-align:center;background:#3a1d1d;bo
     return res.end(PAD_PAGE);
   }
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('404. Enderecos validos:\n  /            trackpad\n  /game        gamepad\n  /app         instalar app (redireciona pro https)\n  /ca.crt      certificado para instalar no celular\n');
+  res.end('404. Enderecos validos:\n  /            trackpad\n  /game        gamepad\n  /android     app Android (.apk)\n  /app         instalar app (redireciona pro https)\n  /ca.crt      certificado para instalar no celular\n');
 }
 
 const server = http.createServer(handle);

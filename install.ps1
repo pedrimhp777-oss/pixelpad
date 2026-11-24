@@ -53,6 +53,17 @@ if ($isAdmin) {
       Write-Host "  [ok] Regra da porta $port ja existia" -ForegroundColor Green
     }
   }
+  $nomeUdp = 'PixelPad UDP 9999'
+  if (-not (Get-NetFirewallRule -DisplayName $nomeUdp -ErrorAction SilentlyContinue)) {
+    try {
+      New-NetFirewallRule -DisplayName $nomeUdp -Direction Inbound -Action Allow -Protocol UDP -LocalPort 9999 -Profile Private | Out-Null
+      Write-Host "  [ok] Regra de firewall criada para a descoberta (UDP 9999)" -ForegroundColor Green
+    } catch {
+      Write-Host "  [!] Falha ao criar a regra de descoberta (UDP 9999)" -ForegroundColor Yellow
+    }
+  } else {
+    Write-Host "  [ok] Regra de descoberta ja existia" -ForegroundColor Green
+  }
 } else {
   Write-Host "  [i] Sem admin: nao criei as regras de firewall." -ForegroundColor DarkGray
   Write-Host "      O Windows pergunta na primeira vez que o Node escutar. Aceite 'Redes privadas'." -ForegroundColor DarkGray

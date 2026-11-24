@@ -42,6 +42,22 @@ Prefere não instalar nada? Baixe o `.zip` portátil, descompacte e rode `PixelP
 
 > O instalador usa o Node LTS oficial (licença MIT, incluída no pacote).
 
+## App Android (recomendado)
+
+O app tira o navegador da jogada: abre em tela cheia, acha o PC sozinho na rede e
+reconecta sozinho na próxima vez. Sem QR, sem digitar IP, sem certificado.
+
+1. Deixe o PixelPad aberto no PC
+2. No celular, abra `http://<ip>:8080/android` — o próprio PC entrega o APK
+3. O Chrome avisa sobre arquivo perigoso: aceite, é o APK
+4. Autorize "instalar apps de fontes desconhecidas" para o Chrome e instale
+
+Também está nos Releases como `PixelPad-x.y.z.apk` (20 KB). Requer Android 5.0+.
+
+> O APK é assinado com uma chave local (`data/android.keystore`), não com uma
+> chave de loja. Por isso o Android mostra o aviso de fonte desconhecida — normal
+> para app fora da Play Store. Instalar versão nova é só instalar por cima.
+
 ## Requisitos
 
 - **Windows 10/11** (o controle virtual usa XInput)
@@ -97,9 +113,11 @@ máquina**, e são refeitos sozinhos quando o IP do PC muda. A chave privada fic
 ## Estrutura
 
 ```
-src/server.mjs   servidor HTTP/HTTPS + WebSocket + páginas (trackpad e gamepad)
+src/server.mjs   servidor HTTP/HTTPS + WebSocket + descoberta UDP + páginas
 src/vigem.mjs    controle virtual via ViGEmClient.dll (koffi, sem Python/.NET)
 src/certs.mjs    CA local + certificado do servidor assinado por ela (node-forge)
+app-android/     app Android (Java puro, WebView + descoberta UDP)
+tools/           build.mjs (instalador) e build-apk.mjs (APK sem Gradle)
 native/          ViGEmClient.dll (x64)
 certs/           gerado em runtime - NUNCA versionar
 data/            token de pareamento - NUNCA versionar
@@ -108,10 +126,12 @@ data/            token de pareamento - NUNCA versionar
 ## Roadmap
 
 - [x] gamepad + trackpad + pareamento por QR + PWA instalável
-- [ ] descoberta automática do PC na rede (sem digitar IP)
-- [ ] executável único para Windows (sem precisar de Node instalado)
-- [ ] app Android nativo (mata a etapa do certificado)
+- [x] descoberta automática do PC na rede (UDP broadcast)
+- [x] instalador Windows com Node embutido
+- [x] app Android nativo (mata a etapa do certificado)
 - [ ] perfis de layout prontos (FPS, plataforma, emulador)
+- [ ] vibração/háptica no celular ao apertar botão
+- [ ] suporte a mais de um celular ao mesmo tempo (multiplayer local)
 
 ## Licença
 
