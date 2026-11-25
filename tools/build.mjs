@@ -184,6 +184,7 @@ execFileSync('powershell', ['-NoProfile', '-Command',
 
 step('Pronto');
 for (const f of fs.readdirSync(DIST)) {
-  const kb = fs.statSync(path.join(DIST, f)).size / 1024 / 1024;
-  console.log(`     dist/${f}  (${kb.toFixed(1)} MB)`);
+  const b = fs.statSync(path.join(DIST, f)).size;
+  const tamanho = b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
+  console.log(`     dist/${f}  (${tamanho})`);
 }
