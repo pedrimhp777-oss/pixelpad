@@ -74,14 +74,18 @@ no controle** — não tem botão de jogar. Quando o gamepad abre, a tela deita 
 
 | Perfil | Direita | Ombros | Esconde |
 |---|---|---|---|
-| PlayStation | △ ○ ✕ □ | L1 L2 R1 R2, SHARE, OPTIONS | — |
-| Xbox | A verde, B vermelho, X azul, Y amarelo | LB LT RB RT, VIEW, MENU | — |
-| Nintendo clássico | X em cima, Y à esquerda, A à direita, B embaixo | L e R | analógicos, gatilhos analógicos, touchpad, PS |
+| PlayStation | △ ○ ✕ □ | L1 L2 R1 R2, L3 R3, SHARE, OPTIONS | — |
+| Xbox | A verde, B vermelho, X azul, Y amarelo | LB LT RB RT, L3 R3, VIEW, MENU | — |
+| Nintendo clássico | X em cima, Y à esquerda, A à direita, B embaixo | L e R, L3 R3 | analógicos, gatilhos analógicos, touchpad, PS |
 
 O perfil usado por último aparece com a borda branca.
 
-Embaixo ficam dois atalhos: **meu layout atual** (entra sem aplicar preset, mantendo
-o que você arrumou) e **trocar de PC** (volta pra lista de computadores).
+**Cada estilo tem o seu layout.** Você pode arrastar os botões no Xbox do seu jeito
+e no PlayStation de outro: cada um guarda as suas posições (e cada um tem um layout
+pra MENU e outro pra JOGO — seis no total). Entrar de novo no estilo não mexe em
+nada; é só tocar no card.
+
+Embaixo fica o atalho **trocar de PC** (volta pra lista de computadores).
 
 No canto de cima fica o **⚡** — é por ele que se chega nas [macros](#macros-combos).
 
@@ -91,7 +95,9 @@ O layout de fábrica saiu da mesa de teste: foram ajustados botão por botão, n
 celular, até ficar confortável no polegar — e daí viraram o padrão de todo mundo.
 Ele começou como uma cópia do [PPSSPP](https://github.com/hrydgard/ppsspp)
 (`UI/GamepadEmu.cpp`, `InitPadLayout`) e foi sendo afinado: direcional maior,
-botões de face maiores, touchpad fora do centro, PS/SHARE/OPTIONS juntos embaixo.
+botões de face maiores, touchpad fora do centro, PS/SHARE/OPTIONS juntos embaixo e
+**L3/R3** (clique dos analógicos) como botões próprios, porque no celular não existe
+"afundar o analógico".
 
 E são **dois** layouts de fábrica, um pra cada modo:
 

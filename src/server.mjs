@@ -108,7 +108,7 @@ function limparMacro(slot) {
 }
 
 // Botoes que uma macro pode apertar (os mesmos que o controle virtual tem)
-const BOTOES_MACRO = new Set(['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'back', 'start',
+const BOTOES_MACRO = new Set(['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'ls', 'rs', 'back', 'start',
   'du', 'dd', 'dl', 'dr']);
 
 function normalizarPassos(passos) {

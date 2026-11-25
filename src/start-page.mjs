@@ -108,7 +108,6 @@ export function startPage({ SVG, nome = '', versao = '' }) {
   <div class="lista" id="marcas"></div>
 
   <div class="rodape">
-    <button id="meu">meu layout atual</button>
     <button id="trocar">trocar de PC</button>
   </div>
   <p id="versao"></p>
@@ -175,7 +174,6 @@ window.addEventListener('popstate', function () {
   history.pushState({ tela: 'inicio' }, '');
 });
 
-document.getElementById('meu').onclick = irJogo;
 document.getElementById('trocar').onclick = function () {
   if (window.PixelPad && PixelPad.dispositivos) PixelPad.dispositivos();
   else location.href = '/pair';

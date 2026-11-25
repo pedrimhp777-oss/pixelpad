@@ -103,7 +103,11 @@ export function gamePage({ CSS, SVG }) {
     .macro { width: 11vmin; height: 11vmin; font-size: 4.8vmin; }
     .stick { width: 29vmin; height: 29vmin; }
   }
+  /* fica em pe: mostra o aviso de girar (a classe vem do JS, mais confiavel que a
+     media query quando o WebView roda em tela que acabou de girar) */
   @media (orientation: portrait) { #stage { display: none; } #rot { display: flex; } }
+  body.retrato #stage { display: none; }
+  body.retrato #rot { display: flex; }
 </style></head><body>
 <div id="stage"></div>
 <div id="hud">
@@ -136,7 +140,7 @@ const SVGS = ` + JSON.stringify(SVG) + `;
 ` + dadosJS() + `
 const st = document.getElementById('st');
 const stage = document.getElementById('stage');
-const state = {a:0,b:0,x:0,y:0,lb:0,rb:0,back:0,start:0,du:0,dd:0,dl:0,dr:0,
+const state = {a:0,b:0,x:0,y:0,lb:0,rb:0,ls:0,rs:0,back:0,start:0,du:0,dd:0,dl:0,dr:0,
                lx:0,ly:0,rx:0,ry:0,lt:0,rt:0};
 let ws, dirty = false, editing = false, selected = null, selecionados = [];
 let macros = [];   // vem de pixelpadMacros, configuradas em /macros
@@ -155,6 +159,8 @@ const NOS = [
   { id:'x', b:'x', cls:'face x', svg:'square' },
   { id:'b', b:'b', cls:'face b', svg:'circle' },
   { id:'a', b:'a', cls:'face a', svg:'cross' },
+  { id:'l3', b:'ls', cls:'sm', txt:'L3' },
+  { id:'r3', b:'rs', cls:'sm', txt:'R3' },
   { id:'share', b:'back', cls:'sm', txt:'SHARE' },
   { id:'options', b:'start', cls:'sm', txt:'OPTIONS' },
   { id:'ps', b:'start', cls:'ps', txt:'PS' },
@@ -178,8 +184,22 @@ for (const n of NOS) {
 }
 
 // ---------------------------------------------------------------- layout salvo
-const LKEY = 'padLayoutV3';
+// Cada estilo (PlayStation/Xbox/Nintendo) tem o SEU layout, e cada modo
+// (menu/jogo) tambem. A chave junta os dois: padLayoutV4:ps:menu
+const LKEY = 'padLayoutV4';
 const APARELHO_KEY = 'pixelpadAparelho';
+const chaveLayout = (marca, modo) => LKEY + ':' + (MARCAS[marca] ? marca : 'ps') + ':' + (modo === 'jogo' ? 'jogo' : 'menu');
+/** Todas as chaves de layout salvas (pra backup no PC). */
+function keysLayout() {
+  const out = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf(LKEY + ':') === 0) out.push(k);
+    }
+  } catch (e) {}
+  return out;
+}
 const PERFIL_KEY = 'pixelpadPerfil';
 const MACROS_KEY = 'pixelpadMacros';
 // Layout de fabrica. Sao DOIS: o do modo MENU (sem analogico) e o do modo JOGO
@@ -191,6 +211,7 @@ const DEF = {
   du:{x:12.6,y:61.7,s:1.2}, dd:{x:12.6,y:89.3,s:1.2}, dl:{x:6.8,y:75.4,s:1.2}, dr:{x:18.4,y:75.4,s:1.2},
   ls:{x:29.3,y:49.4,s:.8}, rs:{x:71.4,y:46.3,s:.8},
   y:{x:87.4,y:58,s:1.6}, x:{x:80.5,y:71.9,s:1.5}, b:{x:94.2,y:73,s:1.5}, a:{x:87.2,y:87,s:1.5},
+  l3:{x:27,y:83,s:.75}, r3:{x:73,y:83,s:.75},
   tp:{x:73.9,y:11.8,s:.9}, share:{x:40.2,y:92.2,s:.8}, options:{x:55.7,y:91.2,s:.8}, ps:{x:48.4,y:88.3,s:.8},
 };
 const DEF_JOGO = {
@@ -230,10 +251,11 @@ function enviarBackup() {
       const corpo = JSON.stringify({
         id: idAparelho(),
         perfil: localStorage.getItem(PERFIL_KEY),
-        layouts: {
-          menu: localStorage.getItem(LKEY + ':menu'),
-          jogo: localStorage.getItem(LKEY + ':jogo'),
-        },
+        layouts: (function () {
+          const o = {};
+          for (const k of keysLayout()) o[k] = localStorage.getItem(k);
+          return o;
+        })(),
         macros: localStorage.getItem(MACROS_KEY) || '[]',
       });
       fetch('/layout?t=' + encodeURIComponent(tokenUrl()), { method: 'POST', body: corpo });
@@ -243,8 +265,7 @@ function enviarBackup() {
 
 /** Abriu sem layout salvo (IP novo, cache limpo, celular novo): puxa do PC. */
 function puxarBackup() {
-  let vazio = false;
-  try { vazio = !localStorage.getItem(LKEY + ':menu') && !localStorage.getItem(LKEY); } catch (e) {}
+  const vazio = keysLayout().length === 0;
   if (!vazio) return;
   let jaTentei = null;
   try { jaTentei = sessionStorage.getItem('pixelpadTenteiBackup'); } catch (e) {}
@@ -256,8 +277,11 @@ function puxarBackup() {
       if (!d || !d.layouts) return;
       let achou = false;
       try {
-        if (d.layouts.menu) { localStorage.setItem(LKEY + ':menu', d.layouts.menu); achou = true; }
-        if (d.layouts.jogo) { localStorage.setItem(LKEY + ':jogo', d.layouts.jogo); achou = true; }
+        for (const k in d.layouts) {
+          if (k.indexOf(LKEY + ':') !== 0 || typeof d.layouts[k] !== 'string') continue;
+          localStorage.setItem(k, d.layouts[k]);
+          achou = true;
+        }
         if (d.macros && d.macros.length > 2) localStorage.setItem(MACROS_KEY, d.macros);
       } catch (e) {}
       if (achou) location.reload();
@@ -333,7 +357,7 @@ function migrarLayout() {
   // botoes grandes por cima dos antigos - refaz ele junto
   const outro = dados.modo === 'menu' ? 'jogo' : 'menu';
   try {
-    const g = JSON.parse(localStorage.getItem(LKEY + ':' + outro));
+    const g = JSON.parse(localStorage.getItem(chaveLayout(dados.marca, outro)));
     if (g && g.nodes && (!g.base || assinatura(g.nodes) === g.base)) {
       const antigos = g.nodes;
       const est = (g.estilo && ESTILOS[g.estilo]) ? g.estilo : estilo;
@@ -344,7 +368,7 @@ function migrarLayout() {
       delete g.macros;
       for (const id of ['ls', 'rs']) if (g.nodes[id]) g.nodes[id].hid = (outro === 'menu');
       g.base = assinatura(g.nodes);
-      localStorage.setItem(LKEY + ':' + outro, JSON.stringify(g));
+      localStorage.setItem(chaveLayout(g.marca, outro), JSON.stringify(g));
     }
   } catch (e) {}
 
@@ -353,58 +377,63 @@ function migrarLayout() {
 }
 
 function carregar() {
-  // o jogo sempre abre no modo MENU (sem analogicos); o layout de cada modo
-  // fica salvo separado, entao trocar pro JOGO recupera o que voce arrumou.
-  let menu = null;
-  try { menu = JSON.parse(localStorage.getItem(LKEY + ':menu')); } catch (e) {}
-  if (menu && menu.nodes) {
-    menu.modo = 'menu';
-    if (!menu.marca) menu.marca = 'ps';
-    delete menu.macros;
-    return menu;
+  // o jogo sempre abre no modo MENU; o layout e POR ESTILO (PlayStation, Xbox...)
+  // e por modo, entao trocar de estilo nao bagunca o do outro.
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(PERFIL_KEY)); } catch (e) {}
+  const marca = (p && MARCAS[p.marca]) ? p.marca : 'ps';
+  const estilo = (p && p.estilo && ESTILOS[p.estilo]) ? p.estilo : 'padrao';
+
+  let salvo = null;
+  try { salvo = JSON.parse(localStorage.getItem(chaveLayout(marca, 'menu'))); } catch (e) {}
+  if (salvo && salvo.nodes) {
+    salvo.modo = 'menu';
+    salvo.marca = marca;
+    delete salvo.macros;
+    for (const id of ['ls', 'rs']) if (salvo.nodes[id]) salvo.nodes[id].hid = true;
+    return salvo;
   }
 
-  let j = null;
-  try { j = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
-  if (j && j.nodes) {
-    if (!j.marca) j.marca = 'ps';
-    delete j.macros;
-    j.modo = 'menu';
-    for (const id of ['ls', 'rs']) if (j.nodes[id]) j.nodes[id].hid = true;
-    return j;
-  }
-
-  // layout da versao anterior: posicoes do usuario viram o "meu layout"
-  let v2 = null;
-  try { v2 = JSON.parse(localStorage.getItem('padLayoutV2')); } catch (e) {}
-  if (v2 && v2.nodes) {
-    v2.marca = 'ps'; v2.estilo = 'meu'; v2.modo = 'menu';
-    for (const id of ['ls', 'rs']) if (v2.nodes[id]) v2.nodes[id].hid = true;
-    return v2;
-  }
-
-  // migracao do layout antigo
-  let antigo = null;
-  try { antigo = JSON.parse(localStorage.getItem('padLayoutV1')); } catch (e) {}
-  if (antigo) {
-    const nodes = {};
-    for (const g in V1) {
-      const G = antigo[g]; if (!G) continue;
-      const filhos = V1[g];
-      let cx = 0, cy = 0;
-      for (const f of filhos) { cx += DEF[f].x; cy += DEF[f].y; }
-      cx /= filhos.length; cy /= filhos.length;
-      for (const f of filhos) {
-        nodes[f] = { x: G.x + (DEF[f].x - cx), y: G.y + (DEF[f].y - cy), s: G.s || 1, hid: false };
+  // ---- migracao dos esquemas antigos (layout unico, sem separar por estilo) ----
+  // O que estava salvo vira o layout do estilo escolhido agora, sem perder nada.
+  const antigoMenu = lerAntigo('padLayoutV3:menu');
+  const antigoJogo = lerAntigo('padLayoutV3:jogo');
+  const antigoSo = antigoMenu || lerAntigo('padLayoutV3') || lerAntigo('padLayoutV2') || lerAntigo('padLayoutV1');
+  if (antigoSo && antigoSo.nodes) {
+    const d = JSON.parse(JSON.stringify(antigoSo));
+    d.modo = 'menu';
+    d.marca = marca;
+    d.estilo = estilo;
+    d.perfil = marca + ':' + estilo;
+    if (!d.base) delete d.base;
+    for (const id in DEF) if (!d.nodes[id]) d.nodes[id] = Object.assign({}, DEF[id], { hid: false });
+    for (const id of ['ls', 'rs']) if (d.nodes[id]) d.nodes[id].hid = true;
+    delete d.macros;
+    try {
+      localStorage.setItem(chaveLayout(marca, 'menu'), JSON.stringify(d));
+      if (antigoJogo && antigoJogo.nodes) {
+        const j = JSON.parse(JSON.stringify(antigoJogo));
+        j.modo = 'jogo'; j.marca = marca; j.estilo = estilo; j.perfil = marca + ':' + estilo;
+        for (const id in DEF) if (!j.nodes[id]) j.nodes[id] = Object.assign({}, DEF[id], { hid: false });
+        for (const id of ['ls', 'rs']) if (j.nodes[id]) j.nodes[id].hid = false;
+        localStorage.setItem(chaveLayout(marca, 'jogo'), JSON.stringify(j));
       }
-    }
-    for (const id in DEF) if (!nodes[id]) nodes[id] = Object.assign({}, DEF[id], { hid: false });
-    for (const id of ['ls', 'rs']) if (nodes[id]) nodes[id].hid = true;
-    return { nodes, marca: 'ps', estilo: 'meu', modo: 'menu' };
+    } catch (e) {}
+    return d;
   }
+
   const padrao = nosDoModo('menu');
-  return { nodes: padrao, marca: 'ps', estilo: 'padrao', modo: 'menu', perfil: 'ps:padrao',
+  return { nodes: padrao, marca, estilo, modo: 'menu', perfil: marca + ':' + estilo,
     base: assinatura(padrao) };
+}
+
+/** Le um layout dos esquemas antigos (V1/V2/V3) e devolve no formato de hoje. */
+function lerAntigo(chave) {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(chave)); } catch (e) { return null; }
+  if (!d) return null;
+  if (chave === 'padLayoutV1' || chave === 'padLayoutV2') return null;   // formatos muito antigos: ignora
+  return (d && d.nodes) ? d : null;
 }
 
 /** Monta as posicoes de um preset e marca o que a marca esconde. */
@@ -427,7 +456,7 @@ function montarPreset(marca, estilo, modo) {
 /** Refaz um layout salvo (de um modo) a partir do preset, mantendo as macros no lugar. */
 function refazerModo(modo, marca, estilo) {
   try {
-    const chave = LKEY + ':' + modo;
+    const chave = chaveLayout(marca || dados.marca, modo);
     const g = JSON.parse(localStorage.getItem(chave));
     if (!g || !g.nodes) return;
     const antigos = g.nodes;
@@ -445,16 +474,11 @@ function refazerModo(modo, marca, estilo) {
 }
 
 /**
- * Aplica o estilo escolhido na tela inicial - e so isso.
+ * Aplica o estilo escolhido na tela inicial.
  *
- * A regra: o layout salvo guarda de qual estilo ele veio (campo perfil, ex.:
- * "ps:padrao"). Se voce entrar de novo pelo MESMO card, nada e mexido: o layout
- * que voce arrumou continua. Se escolher OUTRO estilo (Xbox, Nintendo...), ai sim
- * o preset daquele estilo entra no lugar.
- *
- * Antes a comparacao usava dados.estilo, que ficava gravado como "meu" nos layouts
- * antigos - nunca batia com "padrao", entao o preset era reaplicado a cada abertura
- * e o layout do modo MENU nunca salvava.
+ * Cada estilo tem o SEU layout salvo (padLayoutV4:<estilo>:<modo>). Trocar de
+ * estilo carrega o layout daquele estilo - se nunca foi usado, entra o de fabrica.
+ * Entrar de novo pelo mesmo estilo nao mexe em nada.
  */
 function sincronizarPerfil() {
   let p = null;
@@ -463,20 +487,36 @@ function sincronizarPerfil() {
   const estilo = p.estilo && ESTILOS[p.estilo] ? p.estilo : 'padrao';
   const alvo = p.marca + ':' + estilo;
 
-  if (!ESTILOS[dados.estilo]) dados.estilo = estilo;
-  const atual = dados.perfil || ((dados.marca || 'ps') + ':' + dados.estilo);
-  dados.marca = p.marca;
-  dados.perfil = alvo;
-  if (atual === alvo) { salvar(); return; }
+  const trocou = dados.perfil !== alvo || dados.marca !== p.marca;
+  if (!trocou) {
+    dados.marca = p.marca;
+    dados.perfil = alvo;
+    if (!ESTILOS[dados.estilo]) dados.estilo = estilo;
+    salvar();
+    return;
+  }
 
-  dados.nodes = (estilo === 'padrao') ? nosDoModo(dados.modo) : montarPreset(p.marca, estilo, dados.modo);
+  dados.marca = p.marca;
   dados.estilo = estilo;
+  dados.perfil = alvo;
+
+  let salvo = null;
+  try { salvo = JSON.parse(localStorage.getItem(chaveLayout(p.marca, dados.modo))); } catch (e) {}
+  if (salvo && salvo.nodes) {
+    // ja existe layout desse estilo neste modo: usa ele
+    for (const id in DEF) {
+      if (!salvo.nodes[id]) salvo.nodes[id] = { x: DEF[id].x, y: DEF[id].y, s: DEF[id].s || 1, hid: false };
+    }
+    for (const id of Object.keys(salvo.nodes)) if (id.charAt(0) === 'k') delete salvo.nodes[id];
+    dados.nodes = salvo.nodes;
+    if (salvo.base) dados.base = salvo.base; else delete dados.base;
+  } else {
+    dados.nodes = (estilo === 'padrao') ? nosDoModo(dados.modo) : montarPreset(p.marca, estilo, dados.modo);
+    marcarBase();
+  }
   if (dados.modo === 'menu') {
     for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
   }
-  marcarBase();
-  // trocar de estilo vale pros dois modos: senao o JOGO ficaria com o layout do estilo antigo
-  refazerModo(dados.modo === 'menu' ? 'jogo' : 'menu', p.marca, estilo);
   sincronizarMacros();
   salvar();
 }
@@ -484,7 +524,8 @@ function sincronizarPerfil() {
 /** Simbolos e rotulos dos botoes conforme a marca escolhida. */
 function aplicarMarca() {
   const M = MARCAS[dados.marca] || MARCAS.ps;
-  const PADRAO_ROT = { l2: 'L2', l1: 'L1', r1: 'R1', r2: 'R2', share: 'SHARE', options: 'OPTIONS', ps: 'PS' };
+  const PADRAO_ROT = { l2: 'L2', l1: 'L1', r1: 'R1', r2: 'R2', l3: 'L3', r3: 'R3',
+    share: 'SHARE', options: 'OPTIONS', ps: 'PS' };
   for (const id in PADRAO_ROT) {
     const el = document.getElementById(id);
     if (el && !el.querySelector('svg')) el.textContent = (M.rotulos && M.rotulos[id]) || PADRAO_ROT[id];
@@ -502,8 +543,7 @@ function aplicarMarca() {
 }
 function salvar() {
   try {
-    localStorage.setItem(LKEY, JSON.stringify(dados));
-    if (dados.modo) localStorage.setItem(LKEY + ':' + dados.modo, JSON.stringify(dados));
+    localStorage.setItem(chaveLayout(dados.marca, dados.modo), JSON.stringify(dados));
   } catch (e) {}
   enviarBackup();
 }
@@ -839,26 +879,35 @@ stage.addEventListener('pointercancel', () => { if (arrastando) { arrastando = n
 
 
 // ---------------------------------------------------------------- tela cheia
-/** Alterna entre o layout de menu (sem analogico) e o de jogo. */
+/**
+ * Alterna entre o layout de menu (sem analogico) e o de jogo.
+ * O estilo (PlayStation/Xbox/Nintendo) e global: trocar de modo NUNCA troca os
+ * simbolos dos botoes - cada estilo guarda um layout por modo.
+ */
 function alternarModo() {
   const novo = dados.modo === 'menu' ? 'jogo' : 'menu';
+  const marca = dados.marca, estilo = dados.estilo, perfil = dados.perfil;
   salvar();
-  const guardado = localStorage.getItem(LKEY + ':' + novo);
+
+  const guardado = localStorage.getItem(chaveLayout(marca, novo));
   if (guardado) {
     try { dados = JSON.parse(guardado); } catch (e) { dados.modo = novo; }
     dados.modo = novo;
   } else {
-    // primeira vez neste modo: entra o layout de fabrica dele (menu e jogo tem cada um o seu)
-    const perfilSalvo = dados.perfil, marcaSalva = dados.marca, estiloSalvo = dados.estilo;
-    dados = JSON.parse(JSON.stringify(dados));
+    // primeira vez neste modo: entra o layout de fabrica dele
+    const copia = JSON.parse(JSON.stringify(dados));
+    dados = copia;
     dados.modo = novo;
-    dados.perfil = perfilSalvo; dados.marca = marcaSalva; dados.estilo = estiloSalvo;
-    dados.nodes = (estiloSalvo && estiloSalvo !== 'padrao')
-      ? montarPreset(marcaSalva || 'ps', estiloSalvo, novo)
+    dados.nodes = (estilo && estilo !== 'padrao')
+      ? montarPreset(marca || 'ps', estilo, novo)
       : nosDoModo(novo);
     marcarBase();
-    for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = (novo === 'menu');
   }
+  // marca/estilo voltam por cima: o layout do modo nao manda nos simbolos
+  dados.marca = marca;
+  dados.estilo = estilo;
+  dados.perfil = perfil;
+  for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = (novo === 'menu');
   salvar();
   aplicarMarca();
   aplicar();
@@ -886,6 +935,23 @@ aplicar();
 atualizarBotaoModo();
 // o celular fica em pe na escolha do controle e deita aqui
 if (window.PixelPad && PixelPad.tela) { try { PixelPad.tela('paisagem'); } catch (e) {} }
+
+// Se o WebView nao atualizar o tamanho sozinho ao girar (acontece em alguns
+// aparelhos), a tela fica com o layout de um tamanho e a janela de outro: os
+// botoes aparecem cortados. Aqui a gente reaplica o layout a cada mudanca de
+// tamanho/orientacao e avisa quando esta em pe.
+function ajustarTela() {
+  const retrato = window.innerHeight > window.innerWidth;
+  document.body.classList.toggle('retrato', retrato);
+  aplicar();
+}
+window.addEventListener('resize', ajustarTela);
+window.addEventListener('orientationchange', function () {
+  setTimeout(ajustarTela, 120);
+  setTimeout(ajustarTela, 400);
+});
+if (window.visualViewport) window.visualViewport.addEventListener('resize', ajustarTela);
+ajustarTela();
 connect();
 </script>
 </body></html>`;

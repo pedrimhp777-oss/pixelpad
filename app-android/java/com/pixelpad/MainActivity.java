@@ -115,8 +115,10 @@ public class MainActivity extends Activity {
         cfg.setSupportZoom(false);
         cfg.setBuiltInZoomControls(false);
         cfg.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        cfg.setLoadWithOverviewMode(true);
-        cfg.setUseWideViewPort(true);
+        // a pagina se adapta sozinha (tudo em vmin/%): zoom automatico do WebView
+        // so atrapalha - era o que deixava a tela "cortada" em alguns aparelhos
+        cfg.setLoadWithOverviewMode(false);
+        cfg.setUseWideViewPort(false);
 
         web.addJavascriptInterface(new Ponte(), "PixelPad");
 
@@ -357,10 +359,42 @@ public class MainActivity extends Activity {
 
     private void paisagem() {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        reajustarWeb();
     }
 
     private void retrato() {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        reajustarWeb();
+    }
+
+    /**
+     * Alguns aparelhos (Android 12+) trocam a orientacao sem o WebView perceber,
+     * e a pagina fica desenhada com o tamanho antigo - botoes cortados. Isso
+     * remedeia: pede layout de novo e avisa o JS pra recalcular.
+     */
+    private void reajustarWeb() {
+        if (web == null) return;
+        for (int atraso : new int[]{ 150, 500, 1200 }) {
+            ui.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        web.requestLayout();
+                        web.invalidate();
+                        web.evaluateJavascript(
+                            "(function(){window.dispatchEvent(new Event('resize'));" +
+                            "if(window.visualViewport)window.visualViewport.dispatchEvent(new Event('resize'));})()",
+                            null);
+                    } catch (Exception e) {}
+                }
+            }, atraso);
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration nova) {
+        super.onConfigurationChanged(nova);
+        reajustarWeb();
     }
 
     /** Volta pra lista de PCs (o /inicio chama isso no botao "trocar de PC"). */
