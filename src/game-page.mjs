@@ -229,14 +229,14 @@ const DEF = {
   du:{x:12.6,y:61.7,s:1.2}, dd:{x:12.6,y:89.3,s:1.2}, dl:{x:6.8,y:75.4,s:1.2}, dr:{x:18.4,y:75.4,s:1.2},
   ls:{x:29.3,y:49.4,s:0.8}, rs:{x:65.8,y:47.4,s:0.8}, y:{x:87.4,y:58,s:1.6}, x:{x:80.5,y:71.9,s:1.5},
   b:{x:94.2,y:73,s:1.5}, a:{x:87.2,y:87,s:1.5}, l3:{x:19,y:10.1,s:1.25}, r3:{x:80.7,y:10.8,s:1.25},
-  tp:{x:66.2,y:19.1,s:0.9}, share:{x:40.2,y:92.2,s:0.8}, options:{x:55.7,y:91.2,s:0.8}, ps:{x:48.4,y:88.3,s:0.8},
+  tp:{x:58,y:19.1,s:0.9}, share:{x:40.2,y:92.2,s:0.8}, options:{x:55.7,y:91.2,s:0.8}, ps:{x:48.4,y:88.3,s:0.8},
 };
 const DEF_JOGO = {
   l1:{x:8.1,y:10.8,s:1}, l2:{x:8,y:25,s:1}, r1:{x:92,y:11,s:1}, r2:{x:92,y:25,s:1},
   du:{x:25.5,y:31.8,s:1.1}, dd:{x:25.5,y:57.1,s:1.1}, dl:{x:20.2,y:44.4,s:1.1}, dr:{x:30.8,y:44.4,s:1.1},
   ls:{x:11.9,y:81.2,s:1.1}, rs:{x:67.4,y:44.1,s:0.8}, y:{x:85.6,y:57.7,s:1.5}, x:{x:79.2,y:71.4,s:1.5},
   b:{x:93.5,y:70.5,s:1.5}, a:{x:86,y:87.2,s:1.6}, l3:{x:19.1,y:10.7,s:1.25}, r3:{x:81.5,y:11.4,s:1.15},
-  tp:{x:68.6,y:11.5,s:0.9}, share:{x:42,y:91.1,s:0.8}, options:{x:57.6,y:90.7,s:0.8}, ps:{x:50.2,y:87.4,s:0.8},
+  tp:{x:58,y:19,s:0.9}, share:{x:42,y:91.1,s:0.8}, options:{x:57.6,y:90.7,s:0.8}, ps:{x:50.2,y:87.4,s:0.8},
 };
 
 // ------------------------------------------------------- backup no PC
@@ -349,14 +349,16 @@ const V1 = {
 };
 
 /**
- * L3/R3 nasceram (0.15) embaixo, do lado dos analogicos. Depois eles passaram
- * pro canto de cima, ao lado de L1/R1 - e esse e o padrao de todo mundo agora,
- * nos tres estilos e nos dois modos. Aqui a gente move SO quem ainda esta na
- * posicao antiga de fabrica: L3/R3 que o usuario arrastou nao sao tocados.
+ * L3/R3 nasceram (0.15) embaixo, do lado dos analogicos; depois passaram pro canto
+ * de cima, ao lado de L1/R1. O touchpad tambem andou pra esquerda (ficava encostando
+ * no R3). Aqui a gente move SO quem ainda esta numa posicao antiga de fabrica: o que
+ * o usuario arrastou nao e tocado.
  */
-const L3R3_VELHOS = {
+const POSICOES_VELHAS = {
   l3: [[27, 83], [27, 83.4], [24, 90], [24.8, 83.4]],
   r3: [[73, 83], [73, 83.4], [79, 32]],
+  // o touchpad ja morou mais perto do R3 (e antes disso, quase em cima dele)
+  tp: [[76.4, 13], [73.9, 11.8], [66.2, 19.1], [68.6, 11.5]],
 };
 function l3r3Antigo(L, lista) {
   if (!L || typeof L.x !== 'number' || typeof L.y !== 'number') return false;
@@ -368,14 +370,14 @@ function consertaL3R3(d) {
   if (!d || !d.nodes) return false;
   const fab = nosDoModo(d.modo === 'jogo' ? 'jogo' : 'menu');
   let mudou = false;
-  for (const id of ['l3', 'r3']) {
+  for (const id in POSICOES_VELHAS) {
     const alvo = fab[id];
     if (!alvo) continue;
     const L = d.nodes[id];
     if (!L) {
       d.nodes[id] = { x: alvo.x, y: alvo.y, s: alvo.s, hid: false };
       mudou = true;
-    } else if (l3r3Antigo(L, L3R3_VELHOS[id])) {
+    } else if (l3r3Antigo(L, POSICOES_VELHAS[id])) {
       L.x = alvo.x; L.y = alvo.y; L.s = alvo.s;
       mudou = true;
     }
@@ -384,7 +386,7 @@ function consertaL3R3(d) {
 }
 
 let dados = carregar();
-const MIGRA_KEY = 'pixelpadLayoutV10';
+const MIGRA_KEY = 'pixelpadLayoutV11';
 
 function migrarLayout() {
   // 0.10.0 deixou os botoes maiores: o layout salvo da versao anterior ficaria
