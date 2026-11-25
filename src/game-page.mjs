@@ -179,6 +179,7 @@ for (const n of NOS) {
 
 // ---------------------------------------------------------------- layout salvo
 const LKEY = 'padLayoutV3';
+const APARELHO_KEY = 'pixelpadAparelho';
 const PERFIL_KEY = 'pixelpadPerfil';
 const MACROS_KEY = 'pixelpadMacros';
 // Layout de fabrica. Sao DOIS: o do modo MENU (sem analogico) e o do modo JOGO
@@ -200,6 +201,95 @@ const DEF_JOGO = {
   y:{x:85.6,y:57.7,s:1.5}, x:{x:79.2,y:71.4,s:1.5}, b:{x:93.5,y:70.5,s:1.5}, a:{x:86,y:87.2,s:1.6},
   tp:{x:76.4,y:13,s:.9}, share:{x:42,y:91.1,s:.8}, options:{x:57.6,y:90.7,s:.8}, ps:{x:50.2,y:87.4,s:.8},
 };
+
+// ------------------------------------------------------- backup no PC
+// O layout mora no localStorage, que esta amarrado ao endereco do PC
+// (http://192.168.x.x:8080). Se o IP mudar, o navegador considera outro site e o
+// layout "desaparece". Por isso o gamepad manda uma copia pro PC a cada
+// alteracao e, quando abre sem nada salvo, puxa a copia de volta.
+function idAparelho() {
+  let id = null;
+  try { id = localStorage.getItem(APARELHO_KEY); } catch (e) {}
+  if (!id) {
+    id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    try { localStorage.setItem(APARELHO_KEY, id); } catch (e) {}
+  }
+  return id;
+}
+
+function tokenUrl() {
+  try { return new URLSearchParams(location.search).get('t') || ''; } catch (e) { return ''; }
+}
+
+let enviarTimer = null;
+function enviarBackup() {
+  if (enviarTimer) clearTimeout(enviarTimer);
+  enviarTimer = setTimeout(function () {
+    enviarTimer = null;
+    try {
+      const corpo = JSON.stringify({
+        id: idAparelho(),
+        perfil: localStorage.getItem(PERFIL_KEY),
+        layouts: {
+          menu: localStorage.getItem(LKEY + ':menu'),
+          jogo: localStorage.getItem(LKEY + ':jogo'),
+        },
+        macros: localStorage.getItem(MACROS_KEY) || '[]',
+      });
+      fetch('/layout?t=' + encodeURIComponent(tokenUrl()), { method: 'POST', body: corpo });
+    } catch (e) {}
+  }, 700);
+}
+
+/** Abriu sem layout salvo (IP novo, cache limpo, celular novo): puxa do PC. */
+function puxarBackup() {
+  let vazio = false;
+  try { vazio = !localStorage.getItem(LKEY + ':menu') && !localStorage.getItem(LKEY); } catch (e) {}
+  if (!vazio) return;
+  let jaTentei = null;
+  try { jaTentei = sessionStorage.getItem('pixelpadTenteiBackup'); } catch (e) {}
+  if (jaTentei) return;
+  try { sessionStorage.setItem('pixelpadTenteiBackup', '1'); } catch (e) {}
+  fetch('/layout?t=' + encodeURIComponent(tokenUrl()) + '&id=' + encodeURIComponent(idAparelho()))
+    .then(r => r.json())
+    .then(function (d) {
+      if (!d || !d.layouts) return;
+      let achou = false;
+      try {
+        if (d.layouts.menu) { localStorage.setItem(LKEY + ':menu', d.layouts.menu); achou = true; }
+        if (d.layouts.jogo) { localStorage.setItem(LKEY + ':jogo', d.layouts.jogo); achou = true; }
+        if (d.macros && d.macros.length > 2) localStorage.setItem(MACROS_KEY, d.macros);
+      } catch (e) {}
+      if (achou) location.reload();
+    })
+    .catch(function () {});
+}
+
+/** Identidade de um layout: serve pra saber se o usuario mexeu ou esta de fabrica. */
+function assinatura(nodes) {
+  const ids = Object.keys(nodes || {}).sort();
+  let t = '';
+  for (const id of ids) {
+    const L = nodes[id];
+    if (!L || typeof L.x !== 'number') continue;
+    t += id + ':' + Math.round(L.x * 10) + ',' + Math.round(L.y * 10) + ',' +
+      Math.round((L.s || 1) * 100) + (L.hid ? 'h' : '') + '|';
+  }
+  return t;
+}
+
+/** Marca o layout atual como "de fabrica" (usado antes de qualquer arrasto). */
+function marcarBase() { dados.base = assinatura(dados.nodes); }
+
+/**
+ * true se o layout salvo ainda e o de fabrica (ninguem arrastou nada).
+ * Serve pra migracao saber se pode trocar: layout que o usuario arrumou NUNCA
+ * e sobrescrito, mesmo quando sai versao nova com posicoes diferentes.
+ */
+function podeMigrar(nodes) {
+  if (!dados.base) return false;       // veio de versao antiga: nao da pra saber, preserva
+  return assinatura(nodes) === dados.base;
+}
 
 /** Monta o layout de fabrica do modo pedido (no MENU o analogico nao existe). */
 function nosDoModo(modo) {
@@ -227,12 +317,16 @@ function migrarLayout() {
   try { if (localStorage.getItem(MIGRA_KEY)) return; } catch (e) { return; }
   const estilo = dados.estilo && ESTILOS[dados.estilo] ? dados.estilo : 'padrao';
   const velhos = dados.nodes || {};
-  dados.nodes = estilo === 'padrao' ? nosDoModo(dados.modo)
-    : montarPreset(dados.marca || 'ps', estilo, dados.modo);
-  // as macros ficam no mesmo layout: elas mantem o lugar onde estavam
-  for (const id in velhos) if (id.charAt(0) === 'k') dados.nodes[id] = velhos[id];
-  if (dados.modo === 'menu') {
-    for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
+  // quem arrastou botao nao perde nada: so troca o padrao de quem esta de fabrica
+  if (podeMigrar(velhos)) {
+    dados.nodes = estilo === 'padrao' ? nosDoModo(dados.modo)
+      : montarPreset(dados.marca || 'ps', estilo, dados.modo);
+    // as macros ficam no mesmo layout: elas mantem o lugar onde estavam
+    for (const id in velhos) if (id.charAt(0) === 'k') dados.nodes[id] = velhos[id];
+    if (dados.modo === 'menu') {
+      for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
+    }
+    marcarBase();
   }
 
   // o outro modo (menu/jogo) tambem tem layout salvo proprio e ficaria com os
@@ -240,7 +334,7 @@ function migrarLayout() {
   const outro = dados.modo === 'menu' ? 'jogo' : 'menu';
   try {
     const g = JSON.parse(localStorage.getItem(LKEY + ':' + outro));
-    if (g && g.nodes) {
+    if (g && g.nodes && (!g.base || assinatura(g.nodes) === g.base)) {
       const antigos = g.nodes;
       const est = (g.estilo && ESTILOS[g.estilo]) ? g.estilo : estilo;
       g.nodes = (est === 'padrao') ? nosDoModo(outro)
@@ -249,6 +343,7 @@ function migrarLayout() {
       g.modo = outro;
       delete g.macros;
       for (const id of ['ls', 'rs']) if (g.nodes[id]) g.nodes[id].hid = (outro === 'menu');
+      g.base = assinatura(g.nodes);
       localStorage.setItem(LKEY + ':' + outro, JSON.stringify(g));
     }
   } catch (e) {}
@@ -307,7 +402,9 @@ function carregar() {
     for (const id of ['ls', 'rs']) if (nodes[id]) nodes[id].hid = true;
     return { nodes, marca: 'ps', estilo: 'meu', modo: 'menu' };
   }
-  return { nodes: nosDoModo('menu'), marca: 'ps', estilo: 'padrao', modo: 'menu', perfil: 'ps:padrao' };
+  const padrao = nosDoModo('menu');
+  return { nodes: padrao, marca: 'ps', estilo: 'padrao', modo: 'menu', perfil: 'ps:padrao',
+    base: assinatura(padrao) };
 }
 
 /** Monta as posicoes de um preset e marca o que a marca esconde. */
@@ -341,6 +438,7 @@ function refazerModo(modo, marca, estilo) {
     g.marca = marca || g.marca || 'ps';
     g.estilo = estilo || g.estilo || 'padrao';
     g.perfil = g.marca + ':' + g.estilo;
+    g.base = assinatura(g.nodes);
     for (const id of ['ls', 'rs']) if (g.nodes[id]) g.nodes[id].hid = (modo === 'menu');
     localStorage.setItem(chave, JSON.stringify(g));
   } catch (e) {}
@@ -376,6 +474,7 @@ function sincronizarPerfil() {
   if (dados.modo === 'menu') {
     for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
   }
+  marcarBase();
   // trocar de estilo vale pros dois modos: senao o JOGO ficaria com o layout do estilo antigo
   refazerModo(dados.modo === 'menu' ? 'jogo' : 'menu', p.marca, estilo);
   sincronizarMacros();
@@ -406,6 +505,7 @@ function salvar() {
     localStorage.setItem(LKEY, JSON.stringify(dados));
     if (dados.modo) localStorage.setItem(LKEY + ':' + dados.modo, JSON.stringify(dados));
   } catch (e) {}
+  enviarBackup();
 }
 
 /** No modo MENU o analogico nao existe na tela; no editor ele fica so translucido. */
@@ -700,6 +800,7 @@ document.getElementById('cAcao').onclick = () => {
   dados.nodes = (dados.estilo && dados.estilo !== 'padrao')
     ? montarPreset(dados.marca || 'ps', dados.estilo, dados.modo)
     : nosDoModo(dados.modo);
+  marcarBase();
   selected = null;
   sincronizarMacros();
   salvar(); aplicarMarca(); aplicar();
@@ -755,6 +856,7 @@ function alternarModo() {
     dados.nodes = (estiloSalvo && estiloSalvo !== 'padrao')
       ? montarPreset(marcaSalva || 'ps', estiloSalvo, novo)
       : nosDoModo(novo);
+    marcarBase();
     for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = (novo === 'menu');
   }
   salvar();
@@ -775,6 +877,7 @@ document.getElementById('bperfis').onclick = () => {
   location.href = '/inicio' + location.search;
 };
 
+puxarBackup();
 sincronizarPerfil();
 migrarLayout();
 sincronizarMacros();

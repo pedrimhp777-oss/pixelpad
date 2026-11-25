@@ -243,6 +243,21 @@ Se preferir baixar na mão (outro celular, sem app instalado):
 http://<ip-do-pc>:8080/android
 ```
 
+## Seus ajustes ficam salvos
+
+Layout de cada modo e macros moram **no celular** (no `localStorage` do WebView),
+então atualizar o app — ou o PixelPad do PC — não mexe em nada. Além disso:
+
+- **Novidade de versão nunca apaga o que você arrumou.** Cada layout guarda um
+  carimbo de "estou de fábrica". Se você arrastou qualquer botão, a migração de
+  uma versão nova *pula* aquele modo; só layout intocado é atualizado.
+- **Cópia de segurança no PC.** A cada alteração o celular manda o layout e as
+  macros pro PC (`data/layouts.json`). Se o IP do PC mudar (o navegador passaria a
+  considerar outro site), se você limpar os dados do app ou trocar de celular, o
+  gamepad puxa a cópia de volta e se restaura sozinho na primeira abertura.
+
+> O `data/` é ignorado pelo Git: essa cópia é sua, fica só no seu PC.
+
 ## Requisitos## Requisitos
 
 - **Windows 10/11** (o controle virtual usa XInput)

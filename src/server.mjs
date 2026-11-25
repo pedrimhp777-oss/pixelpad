@@ -170,6 +170,21 @@ function pararMacro(slot) {
   enviarEstado(slot);
 }
 
+// ---------------- backup do layout do celular ----------------
+// O layout vive no localStorage do celular, que e amarrado ao endereco do PC.
+// Se o IP mudar (ou o cara limpar os dados do app), ele sumiria. Aqui fica uma
+// copia no PC: o gamepad manda sempre que salva e puxa de volta se abrir vazio.
+const LAYOUTS_FILE = path.join(ROOT, 'data', 'layouts.json');
+function lerLayouts() {
+  try { return JSON.parse(fs.readFileSync(LAYOUTS_FILE, 'utf8')); } catch { return {}; }
+}
+function gravarLayouts(o) {
+  try {
+    fs.mkdirSync(path.dirname(LAYOUTS_FILE), { recursive: true });
+    fs.writeFileSync(LAYOUTS_FILE, JSON.stringify(o));
+  } catch (e) { logLine('nao consegui salvar o backup do layout: ' + e.message); }
+}
+
 const VERSAO = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version; } catch { return '0'; } })();
 
 // ---------------- pareamento ----------------
@@ -402,6 +417,37 @@ function handle(req, res) {
   if (u === '/app' && secure) {
     res.writeHead(302, { Location: `/game` });
     return res.end();
+  }
+  if (u === '/layout') {
+    const q = new URL(req.url, 'http://local').searchParams;
+    if (q.get('t') !== TOKEN) { res.writeHead(403); return res.end('sem token'); }
+
+    if (req.method === 'POST') {
+      let corpo = '';
+      req.on('data', c => {
+        corpo += c;
+        if (corpo.length > 400000) req.destroy();
+      });
+      req.on('end', () => {
+        let dados = null;
+        try { dados = JSON.parse(corpo); } catch {}
+        if (!dados || typeof dados !== 'object') { res.writeHead(400); return res.end('json invalido'); }
+        const id = String(dados.id || 'ultimo').slice(0, 40);
+        const todos = lerLayouts();
+        todos[id] = { salvo: Date.now(), layouts: dados.layouts || {}, macros: dados.macros || [], perfil: dados.perfil || null };
+        todos.ultimo = id;
+        gravarLayouts(todos);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end('{"ok":true}');
+      });
+      return;
+    }
+
+    const id = String(q.get('id') || '');
+    const todos = lerLayouts();
+    const achado = todos[id] || todos[todos.ultimo] || null;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify(achado || {}));
   }
   if (u === '/inicio' || u === '/start' || u === '/perfis') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });

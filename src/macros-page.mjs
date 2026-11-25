@@ -229,6 +229,38 @@ function macroCarregar() {
 }
 function macroSalvar() {
   try { localStorage.setItem(CHAVE, JSON.stringify(macros)); } catch (e) {}
+  backupNoPC();
+}
+
+/**
+ * Manda as macros pro PC junto com o layout (o gamepad manda o layout; aqui a
+ * gente manda so as macros, mantendo a mesma copia de seguranca).
+ */
+function backupNoPC() {
+  try {
+    let id = localStorage.getItem('pixelpadAparelho');
+    if (!id) {
+      id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem('pixelpadAparelho', id);
+    }
+    const t = new URLSearchParams(location.search).get('t') || '';
+    const antes = localStorage.getItem('pixelpadBackupMacros') || '';
+    const agora = JSON.stringify(macros);
+    if (antes === agora) return;                 // nao repete envio igual
+    localStorage.setItem('pixelpadBackupMacros', agora);
+    fetch('/layout?t=' + encodeURIComponent(t), {
+      method: 'POST',
+      body: JSON.stringify({
+        id: id,
+        perfil: localStorage.getItem('pixelpadPerfil'),
+        layouts: {
+          menu: localStorage.getItem('padLayoutV3:menu'),
+          jogo: localStorage.getItem('padLayoutV3:jogo'),
+        },
+        macros: agora,
+      }),
+    }).catch(function () {});
+  } catch (e) {}
 }
 
 // ---------------------------------------------------------------- lista
