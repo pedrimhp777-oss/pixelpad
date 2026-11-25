@@ -75,6 +75,19 @@ export function gamePage({ CSS, SVG }) {
   #editor button.on { background: #2b6df6; color: #fff; }
   body.editing #editor { display: flex; }
 
+  #confirma { position: absolute; inset: 0; background: rgba(5,7,10,.72); display: none; z-index: 60;
+    align-items: center; justify-content: center; }
+  #confirma.aberto { display: flex; }
+  #confirma .caixa { background: #171e2a; border: 1px solid #232f40; border-radius: 3vmin;
+    padding: 3.6vmin 4vmin 2.8vmin; max-width: 92vmin; box-shadow: 0 3vmin 9vmin rgba(0,0,0,.65); }
+  #confirma h3 { margin: 0 0 1.2vmin; font-size: 3.4vmin; font-weight: 800; }
+  #confirma p { margin: 0 0 2.8vmin; font-size: 2.7vmin; line-height: 1.5; color: #97a3b4; }
+  #confirma .botoes { display: flex; gap: 1.8vmin; }
+  #confirma button { flex: 1; padding: 2.2vmin 3vmin; border-radius: 2vmin; border: 0; font-size: 3vmin;
+    font-weight: 700; }
+  #cCancelar { background: #101620; color: #97a3b4; border: 1px solid #232f40; }
+  #cAcao { background: #2b6df6; color: #fff; }
+
   #rot { display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
     text-align: center; font-size: 5vmin; padding: 10vmin; color: #7db6ff; }
   @media (orientation: portrait) { #stage { display: none; } #rot { display: flex; } }
@@ -92,6 +105,16 @@ export function gamePage({ CSS, SVG }) {
   <button id="beye" title="ocultar/mostrar">&#128065;</button>
   <button id="breset" title="voltar ao lugar de fábrica">&#8635;</button>
   <button id="bdone" title="sair do editor">&#10003;</button>
+</div>
+<div id="confirma">
+  <div class="caixa">
+    <h3>Voltar ao padrão?</h3>
+    <p>Os botões voltam pro lugar de fábrica. Suas macros continuam salvas.</p>
+    <div class="botoes">
+      <button id="cCancelar">Cancelar</button>
+      <button id="cAcao">Voltar</button>
+    </div>
+  </div>
 </div>
 <div id="rot">Gire o celular<br>para a horizontal</div>
 <script>
@@ -402,7 +425,7 @@ function sincronizarMacros() {
 // ---------------------------------------------------------------- botoes
 function pertenceAoEditor(ev) {
   const alvo = ev.target;
-  return alvo && (alvo.closest('#editor') || alvo.closest('#hud'));
+  return alvo && (alvo.closest('#editor') || alvo.closest('#hud') || alvo.closest('#confirma'));
 }
 
 function ligarBotao(el, b) {
@@ -495,7 +518,15 @@ document.getElementById('beye').onclick = () => {
   L.hid = !L.hid; salvar(); selecionar(selected);
 };
 document.getElementById('breset').onclick = () => {
-  if (!confirm('Voltar os controles para o lugar de fabrica?')) return;
+  document.getElementById('confirma').classList.add('aberto');
+};
+
+document.getElementById('cCancelar').onclick = () => {
+  document.getElementById('confirma').classList.remove('aberto');
+};
+
+document.getElementById('cAcao').onclick = () => {
+  document.getElementById('confirma').classList.remove('aberto');
   dados.nodes = {};
   for (const id in DEF) dados.nodes[id] = Object.assign({}, DEF[id], { hid: false });
   if (dados.modo === 'menu') for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;

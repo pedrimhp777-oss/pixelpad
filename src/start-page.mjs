@@ -24,16 +24,23 @@ export function startPage({ SVG, nome = '' }) {
 
   .topo { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
   .topo .id { flex: 1; min-width: 0; }
-  #macros { flex: none; width: 44px; height: 44px; border-radius: 13px; border: 1px solid #1e2836;
-    background: #141a24; color: #6b7787; font-size: 17px; line-height: 1; }
-  #macros:active { background: #1b222c; color: #ffd34d; }
+  #macros { flex: none; display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px;
+    border-radius: 10px; border: 1px solid #1e2836; background: #141a24; color: #9aa5b4;
+    font-family: inherit; font-size: 10.5px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; }
+  #macros span { font-size: 14px; color: #ffd34d; line-height: 1; }
+  #macros:active { background: #1b222c; color: #e9ecf1; }
   .logo { width: 52px; height: 52px; border-radius: 15px; flex: none;
     background: radial-gradient(circle at 32% 28%, #ffd34d, #f09100 70%);
     display: grid; place-items: center; font-weight: 900; font-size: 18px; color: #2a1600;
     box-shadow: 0 0 22px rgba(240,145,0,.4); }
-  h1 { margin: 0; font-size: 27px; font-weight: 900; font-style: italic; letter-spacing: .8px;
-    color: #f7c518; line-height: 1; }
-  .topo p { margin: 5px 0 0; font-size: 12.5px; color: #8a94a3; }
+  h1 { margin: 0; font-size: 25px; font-weight: 900; font-style: italic; letter-spacing: .6px;
+    color: #f7c518; line-height: 1; white-space: nowrap; }
+  .topo p { margin: 5px 0 0; font-size: 12.5px; color: #8a94a3; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .topo p b { color: #c3ccd9; font-weight: 600; }
+  .topo p.pc { display: flex; align-items: center; gap: 6px; }
+  .topo p.pc i { width: 6px; height: 6px; border-radius: 50%; background: #3ddc84; flex: none;
+    box-shadow: 0 0 6px rgba(61,220,132,.7); }
   .topo p b { color: #b9c4d2; font-weight: 600; }
 
   .lista { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; }
@@ -66,7 +73,9 @@ export function startPage({ SVG, nome = '' }) {
     .wrap { padding: 14px 14px 12px; }
     .topo { margin-bottom: 14px; gap: 10px; }
     .logo { width: 42px; height: 42px; border-radius: 12px; font-size: 15px; }
+    #macros { height: 38px; padding: 0 11px; font-size: 11.5px; gap: 6px; }
     h1 { font-size: 22px; }
+    #macros { height: 30px; padding: 0 9px; font-size: 10px; gap: 5px; }
     .topo p { font-size: 11.5px; }
     .lista { gap: 9px; }
     .card { min-height: 0; padding: 12px 15px; border-radius: 15px; }
@@ -83,9 +92,9 @@ export function startPage({ SVG, nome = '' }) {
     <div class="logo">PP</div>
     <div class="id">
       <h1>PIXELPAD</h1>
-      <p>${nomeSeguro ? 'Conectado em <b>' + nomeSeguro + '</b>' : 'Escolha o controle'}</p>
+      <p class="pc"><i></i><b>${nomeSeguro}</b></p>
     </div>
-    <button id="macros" title="Macros">&#9889;</button>
+    <button id="macros" title="Macros"><span>&#9889;</span>Macros</button>
   </div>
 
   <p class="rotulo">ESTILO DO CONTROLE</p>

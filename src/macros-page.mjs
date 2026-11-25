@@ -27,6 +27,24 @@ export function macrosPage({ SVG, nome = '' }) {
     background: #141a24; color: #8a94a3; font-size: 19px; line-height: 1; flex: none; }
   .topo h1 { margin: 0; font-size: 21px; font-weight: 800; letter-spacing: .3px; }
 
+  .sombra { position: fixed; inset: 0; background: rgba(5,7,10,.72); display: none; z-index: 50;
+    align-items: center; justify-content: center; padding: 24px; animation: surgir .12s ease-out; }
+  .sombra.aberto { display: flex; }
+  @keyframes surgir { from { opacity: 0 } to { opacity: 1 } }
+  .dialogo { background: #171e2a; border: 1px solid #232f40; border-radius: 20px; padding: 22px 20px 16px;
+    max-width: 320px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.65);
+    animation: subir .14s ease-out; }
+  @keyframes subir { from { transform: scale(.94); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+  .dialogo h3 { margin: 0 0 8px; font-size: 17px; font-weight: 800; }
+  .dialogo p { margin: 0 0 18px; font-size: 13px; line-height: 1.5; color: #97a3b4; }
+  .dialogo .botoes { display: flex; gap: 10px; }
+  .dialogo button { flex: 1; padding: 13px; border-radius: 13px; border: 0; font: inherit;
+    font-size: 14px; font-weight: 700; }
+  #dCancelar { background: #101620; color: #97a3b4; border: 1px solid #232f40; }
+  #dAcao { background: #e0453f; color: #fff; }
+  #dAcao.neutro { background: #2f6df6; }
+  .dialogo button:active { transform: scale(.98); }
+
   .intro { background: #171e2a; border: 1px solid #222c3c; border-radius: 18px; padding: 16px;
     display: flex; flex-direction: column; gap: 10px; flex: none; }
   .intro .cabeca { display: flex; align-items: center; gap: 12px; }
@@ -143,6 +161,17 @@ export function macrosPage({ SVG, nome = '' }) {
   </div>
 </div>
 
+<div class="sombra" id="sombra">
+  <div class="dialogo" role="dialog" aria-modal="true">
+    <h3 id="dTitulo">Apagar macro?</h3>
+    <p id="dTexto"></p>
+    <div class="botoes">
+      <button id="dCancelar">Cancelar</button>
+      <button id="dAcao">Apagar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const SVGS = ` + JSON.stringify(SVG) + `;
 ` + dadosJS() + `
@@ -227,11 +256,51 @@ function esc(t) {
   });
 }
 
+// ---------------------------------------------------------------- confirmacao
+let acaoPendente = null;
+
+function pedirConfirmacao(o) {
+  document.getElementById('dTitulo').textContent = o.titulo;
+  document.getElementById('dTexto').textContent = o.texto;
+  const b = document.getElementById('dAcao');
+  b.textContent = o.acao || 'Apagar';
+  b.classList.toggle('neutro', !!o.neutro);
+  acaoPendente = o.aoConfirmar;
+  document.getElementById('sombra').classList.add('aberto');
+  try { history.pushState({ dialogo: 1 }, ''); } catch (e) {}
+}
+
+function fecharDialogo(peloHistorico) {
+  document.getElementById('sombra').classList.remove('aberto');
+  acaoPendente = null;
+  if (!peloHistorico && history.state && history.state.dialogo) {
+    try { history.back(); } catch (e) {}
+  }
+}
+
+document.getElementById('dCancelar').onclick = function () { fecharDialogo(false); };
+document.getElementById('dAcao').onclick = function () {
+  const acao = acaoPendente;
+  fecharDialogo(false);
+  if (acao) acao();
+};
+document.getElementById('sombra').addEventListener('pointerdown', function (ev) {
+  if (ev.target.id === 'sombra') fecharDialogo(false);
+});
+
 function apagar(id) {
-  if (!confirm('Apagar esta macro?')) return;
-  macros = macros.filter(function (m) { return m.id !== id; });
-  macroSalvar();
-  desenharLista();
+  const m = macros.find(function (x) { return x.id === id; });
+  pedirConfirmacao({
+    titulo: 'Apagar macro?',
+    texto: '"' + ((m && m.nome) || 'MACRO') + '" sai do controle. Você pode criar outra igual depois.',
+    acao: 'Apagar',
+    aoConfirmar: function () {
+      macros = macros.filter(function (x) { return x.id !== id; });
+      macroSalvar();
+      desenharLista();
+      if (navigator.vibrate) navigator.vibrate(12);
+    },
+  });
 }
 
 // ---------------------------------------------------------------- editor
@@ -259,6 +328,10 @@ function fechar() {
 }
 
 window.addEventListener('popstate', function () {
+  if (document.getElementById('sombra').classList.contains('aberto')) {
+    fecharDialogo(true);
+    return;
+  }
   if (document.getElementById('editor').classList.contains('aberto')) {
     document.getElementById('editor').classList.remove('aberto');
     editando = null;
