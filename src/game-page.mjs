@@ -33,20 +33,20 @@ export function gamePage({ CSS, SVG }) {
   body.editing .node { cursor: move; }
   body:not(.editing) .node.hid { display: none !important; }
 
-  .btn { width: 20vmin; height: 10vmin; border-radius: 2.4vmin; font-size: 3.2vmin;
+  .btn { width: 22.5vmin; height: 11.2vmin; border-radius: 2.6vmin; font-size: 3.6vmin;
     letter-spacing: .2vmin; background: #151b24; color: #cdd6e2; }
   .btn.trig { background: #14202e; }
-  .dp { width: 9.6vmin; height: 9.6vmin; border-radius: 2vmin; font-size: 4vmin; background: #151b24; color: #cdd6e2; }
-  .face { width: 9.6vmin; height: 9.6vmin; border-radius: 50%; padding: 2.1vmin; }
+  .dp { width: 11vmin; height: 11vmin; border-radius: 2.2vmin; font-size: 4.6vmin; background: #151b24; color: #cdd6e2; }
+  .face { width: 10.5vmin; height: 10.5vmin; border-radius: 50%; padding: 2.4vmin; }
   .face svg { width: 100%; height: 100%; }
   .face.y { background: #10291d; color: #4de3a0; }
   .face.x { background: #341025; color: #ff7ac8; }
   .face.b { background: #341018; color: #ff6b81; }
   .face.a { background: #101f34; color: #6aa9ff; }
-  .sm { width: 14vmin; height: 8vmin; border-radius: 2.2vmin; font-size: 2.6vmin; background: #151b24; color: #cdd6e2; }
-  .ps { width: 12vmin; height: 12vmin; border-radius: 50%; font-size: 2.9vmin; background: #1a2432; color: #cdd6e2; }
+  .sm { width: 15.5vmin; height: 9vmin; border-radius: 2.4vmin; font-size: 2.9vmin; background: #151b24; color: #cdd6e2; }
+  .ps { width: 13.5vmin; height: 13.5vmin; border-radius: 50%; font-size: 3.2vmin; background: #1a2432; color: #cdd6e2; }
 
-  .stick { border-radius: 50%; width: 30vmin; height: 30vmin;
+  .stick { border-radius: 50%; width: 32vmin; height: 32vmin;
     background: radial-gradient(circle, #1b222c 0%, #101620 72%); border: 1px solid #263140; }
   .stick .knob { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; border-radius: 50%;
     background: #2b6df6; opacity: .7; transform: translate(-50%,-50%); pointer-events: none; }
@@ -55,15 +55,15 @@ export function gamePage({ CSS, SVG }) {
     display: flex; align-items: center; justify-content: center; }
   .tp span { font-size: 1.9vmin; letter-spacing: .3vmin; color: #3a4656; text-transform: uppercase; pointer-events: none; }
 
-  .macro { width: 11vmin; height: 11vmin; border-radius: 50%; background: #2a2038; border: 1px solid #6a4a9c;
-    color: #e6d9ff; display: grid; place-items: center; padding: 0; font-size: 4.8vmin; line-height: 1; }
+  .macro { width: 12vmin; height: 12vmin; border-radius: 50%; background: #2a2038; border: 1px solid #6a4a9c;
+    color: #e6d9ff; display: grid; place-items: center; padding: 0; font-size: 5.2vmin; line-height: 1; }
   .macro.txt { font-size: 2.5vmin; font-weight: 800; letter-spacing: .1vmin; }
   .macro:active, .macro.on { background: #3d2c53; box-shadow: 0 0 0 2px #6a4a9c inset; }
 
   #hud { position: absolute; top: 1.5vmin; left: 50%; transform: translateX(-50%); display: flex;
     gap: 1.4vmin; z-index: 20; align-items: center; }
   #hud button { padding: 1.2vmin 2.2vmin; border-radius: 1.6vmin; font-size: 2.4vmin; background: #17202b; color: #cdd6e2; }
-  #bperfis { display: grid; place-items: center; padding: 1vmin 1.9vmin !important; font-size: 3.1vmin !important; }
+  #bperfis { display: grid; place-items: center; padding: 1.2vmin 2.1vmin !important; font-size: 3.9vmin !important; }
   #bperfis svg { width: 1em; height: 1em; display: block; }
   #st { font-size: 2.6vmin; font-weight: 800; padding: .6vmin 2vmin; border-radius: 1.2vmin;
     color: #4b5766; letter-spacing: .1vmin; }
@@ -92,6 +92,17 @@ export function gamePage({ CSS, SVG }) {
 
   #rot { display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
     text-align: center; font-size: 5vmin; padding: 10vmin; color: #7db6ff; }
+
+  /* telas menos largas (tablet, 16:10, 4:3): encolhe um pouco pra nao encostar na borda */
+  @media (max-aspect-ratio: 19/10) {
+    .btn { width: 20vmin; height: 10.2vmin; font-size: 3.3vmin; }
+    .dp { width: 9.8vmin; height: 9.8vmin; font-size: 4.2vmin; }
+    .face { width: 9.6vmin; height: 9.6vmin; padding: 2.2vmin; }
+    .sm { width: 14.4vmin; height: 8.2vmin; font-size: 2.7vmin; }
+    .ps { width: 12.4vmin; height: 12.4vmin; font-size: 3vmin; }
+    .macro { width: 11vmin; height: 11vmin; font-size: 4.8vmin; }
+    .stick { width: 29vmin; height: 29vmin; }
+  }
   @media (orientation: portrait) { #stage { display: none; } #rot { display: flex; } }
 </style></head><body>
 <div id="stage"></div>
@@ -171,12 +182,12 @@ const LKEY = 'padLayoutV3';
 const PERFIL_KEY = 'pixelpadPerfil';
 const MACROS_KEY = 'pixelpadMacros';
 const DEF = {
-  l2:{x:8,y:12,s:1}, l1:{x:8,y:28,s:1},
-  r1:{x:92,y:12,s:1}, r2:{x:92,y:28,s:1},
-  du:{x:9,y:50,s:1}, dd:{x:9,y:70,s:1}, dl:{x:4.5,y:60,s:1}, dr:{x:13.5,y:60,s:1},
-  ls:{x:9,y:87,s:.85}, rs:{x:91,y:87,s:.85},
-  y:{x:91,y:44,s:1}, x:{x:86.5,y:54,s:1}, b:{x:95.5,y:54,s:1}, a:{x:91,y:64,s:1},
-  tp:{x:50,y:30,s:.9}, share:{x:50,y:92,s:.8}, options:{x:58,y:92,s:.8}, ps:{x:50,y:84,s:.8},
+  l1:{x:8,y:11,s:1}, l2:{x:8,y:25,s:1},
+  r1:{x:92,y:11,s:1}, r2:{x:92,y:25,s:1},
+  du:{x:9,y:48,s:1}, dd:{x:9,y:71,s:1}, dl:{x:4.2,y:59.5,s:1}, dr:{x:13.8,y:59.5,s:1},
+  ls:{x:9,y:88,s:.85}, rs:{x:91,y:88,s:.85},
+  y:{x:91,y:41.5,s:1}, x:{x:87.5,y:52.5,s:1}, b:{x:94.5,y:52.5,s:1}, a:{x:91,y:63.5,s:1},
+  tp:{x:50,y:28,s:.9}, share:{x:50,y:92,s:.8}, options:{x:58,y:92,s:.8}, ps:{x:50,y:80,s:.8},
 };
 // grupos do layout antigo (v1) -> filhos, pra nao perder o que ja foi ajustado
 const V1 = {
@@ -185,6 +196,21 @@ const V1 = {
 };
 
 let dados = carregar();
+const MIGRA_KEY = 'pixelpadLayoutV4';
+
+function migrarLayout() {
+  // 0.10.0 deixou os botoes maiores: o layout salvo da versao anterior ficaria
+  // com os botoes encostando, entao ele e refeito uma vez a partir do preset.
+  try { if (localStorage.getItem(MIGRA_KEY)) return; } catch (e) { return; }
+  const estilo = dados.estilo && ESTILOS[dados.estilo] ? dados.estilo : 'padrao';
+  dados.nodes = montarPreset(dados.marca || 'ps', estilo);
+  if (dados.modo === 'menu') {
+    for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
+  }
+  try { localStorage.setItem(MIGRA_KEY, '1'); } catch (e) {}
+  salvar();
+}
+
 function carregar() {
   // o jogo sempre abre no modo MENU (sem analogicos); o layout de cada modo
   // fica salvo separado, entao trocar pro JOGO recupera o que voce arrumou.
@@ -512,17 +538,51 @@ document.getElementById('bedit').onclick = () => {
 
 document.getElementById('bdone').onclick = () => document.getElementById('bedit').click();
 
-/** Muda o tamanho de todos os controles selecionados (as setas sao um bloco). */
+/**
+ * Muda o tamanho dos controles selecionados. Quando e um grupo (as setas), os
+ * botoes tambem se afastam do centro do grupo na mesma proporcao - senao so
+ * cresceriam por cima uns dos outros.
+ */
 function escalar(delta) {
-  const ids = idsSelecionados();
-  let mudou = false;
-  for (const id of ids) {
-    const L = dados.nodes[id];
-    if (!L) continue;
-    L.s = Math.min(3, Math.max(0.35, Math.round(((L.s || 1) + delta) * 100) / 100));
-    mudou = true;
+  const ids = idsSelecionados().filter(id => dados.nodes[id]);
+  if (!ids.length) return;
+
+  const antes = dados.nodes[ids[0]].s || 1;
+  const depois = Math.min(3, Math.max(0.35, Math.round((antes + delta) * 100) / 100));
+  if (depois === antes) return;
+  const f = depois / antes;
+
+  for (const id of ids) dados.nodes[id].s = depois;
+
+  if (ids.length > 1) {
+    let cx = 0, cy = 0;
+    for (const id of ids) { cx += dados.nodes[id].x; cy += dados.nodes[id].y; }
+    cx /= ids.length; cy /= ids.length;
+    for (const id of ids) {
+      const L = dados.nodes[id];
+      L.x = Math.round((cx + (L.x - cx) * f) * 10) / 10;
+      L.y = Math.round((cy + (L.y - cy) * f) * 10) / 10;
+    }
+    // se o bloco cresceu pra fora da tela, encosta ele de volta pra dentro
+    let minX = 100, maxX = 0, minY = 100, maxY = 0;
+    for (const id of ids) {
+      const L = dados.nodes[id];
+      minX = Math.min(minX, L.x); maxX = Math.max(maxX, L.x);
+      minY = Math.min(minY, L.y); maxY = Math.max(maxY, L.y);
+    }
+    const dx = minX < 7 ? 7 - minX : (maxX > 93 ? 93 - maxX : 0);
+    const dy = minY < 8 ? 8 - minY : (maxY > 92 ? 92 - maxY : 0);
+    if (dx || dy) {
+      for (const id of ids) {
+        const L = dados.nodes[id];
+        L.x = Math.round((L.x + dx) * 10) / 10;
+        L.y = Math.round((L.y + dy) * 10) / 10;
+      }
+    }
   }
-  if (mudou) { salvar(); aplicar(); }
+
+  salvar();
+  aplicar();
 }
 
 document.getElementById('bminus').onclick = () => escalar(-0.1);
@@ -622,6 +682,7 @@ document.getElementById('bperfis').onclick = () => {
 };
 
 sincronizarPerfil();
+migrarLayout();
 sincronizarMacros();
 aplicarMarca();
 aplicar();

@@ -125,6 +125,19 @@ do caminho do polegar:
 Cada botão é independente: pode afastar o △ do ○, subir o analógico, encolher o
 L2. Tudo fica salvo no celular e volta igual na próxima vez.
 
+As setas do direcional são **um bloco**: ao selecionar uma, as quatro ficam
+selecionadas. O **−** e **+** mudam o tamanho *e* a distância entre elas na mesma
+proporção, então o cruzamento cresce sem as setas se encostarem — e se o bloco
+passar da borda da tela, ele é empurrado de volta pra dentro sozinho.
+
+O tamanho dos botões é em `vmin` (porção do menor lado da tela), então num celular
+16:9, num 20:9 e num tablet 16:10 eles ocupam sempre a mesma fração da tela. Em
+telas menos largas (tablet, 4:3) um ajuste automático encolhe um pouco os botões
+pra nada encostar na borda.
+
+> Quem já tinha um layout salvo antigo recebe o layout novo uma única vez na
+> versão 0.10.0 (`pixelpadLayoutV4`), porque o antigo tinha as setas sobrepostas.
+
 ## Macros (combos)
 
 A macro não se configura mais no meio do jogo: na **tela inicial**, toque no
