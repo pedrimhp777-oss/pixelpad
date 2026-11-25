@@ -97,6 +97,9 @@ npm run build:all
 (ou `PIXELPAD_CERT_SUBJECT` para um certificado instalado no Windows, ou
 `PIXELPAD_SIGN_DLIB` + `PIXELPAD_SIGN_METADATA` para o Azure Trusted Signing.)
 
+O passo a passo de como conseguir o certificado de graça (projeto open source) e
+como conferir que assinou está em **[docs/ASSINATURA.md](docs/ASSINATURA.md)**.
+
 Se o seu antivírus reclamar mesmo assim, mande o arquivo para análise da Microsoft
 em <https://www.microsoft.com/en-us/wdsi/filesubmission> — falso positivo assim é
 corrigido em 24-72 h.

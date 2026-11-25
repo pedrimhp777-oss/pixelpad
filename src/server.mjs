@@ -228,6 +228,8 @@ const VERSAO = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 
 
 // ---------------- pareamento ----------------
 const TOKFILE = path.join(DATA, 'token.txt');
+// o que a pagina de pareamento mostra como "onde ficam os dados"
+const CAMINHO_TOKEN = (BASE === ROOT ? 'data' : '%LOCALAPPDATA%\\PixelPad\\data') + '\\token.txt';
 let TOKEN = '';
 try { TOKEN = fs.readFileSync(TOKFILE, 'utf8').trim(); } catch {}
 if (!TOKEN || TOKEN.length < 16) {
@@ -592,12 +594,20 @@ ${padErro ? `<div style="max-width:460px;text-align:center;background:#3a1d1d;bo
   <span style="color:#4b5766;font-size:11px">ele mostra a lista de PCs da rede e voce escolhe em qual conectar</span>
 </div>
 <div class="card">
+  <b>O celular nao acha o PC?</b><br>
+  1. o Windows pergunta <b>uma vez</b> se o PixelPad pode usar a rede &mdash; e preciso <b>aceitar</b> (rede privada)<br>
+  2. recusou sem querer? no PowerShell <b>como administrador</b>:<br>
+  <code>netsh advfirewall firewall add rule name="PixelPad TCP" dir=in action=allow protocol=TCP localport=8080 profile=private</code><br>
+  3. celular e PC tem que estar no <b>mesmo Wi-Fi</b> (rede de visitante isola os aparelhos)
+</div>
+
+<div class="card">
   <b>Quer instalar como app na tela inicial?</b><br>
   1. abra <a href="http://${lan}:${PORT}/ca.crt">http://${lan}:${PORT}/ca.crt</a> no celular e instale como <b>CA</b><br>
   2. abra <a href="/app?t=${TOKEN}">/app</a> &middot; 3. menu &rsaquo; <b>Instalar aplicativo</b><br>
   <span style="color:#4b5766;font-size:11px">endereco HTTPS: ${alvoS}</span>
 </div>
-<p style="color:#4b5766;font-size:11px;margin:0">token ${TOKEN.slice(0, 8)}... &middot; data/token.txt</p>
+<p style="color:#4b5766;font-size:11px;margin:0">token ${TOKEN.slice(0, 8)}... &middot; ${CAMINHO_TOKEN}</p>
 <script>
 function desenhar(j) {
   const alvo = document.getElementById('jogs');
