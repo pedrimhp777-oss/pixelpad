@@ -55,14 +55,16 @@ export function gamePage({ CSS, SVG }) {
     display: flex; align-items: center; justify-content: center; }
   .tp span { font-size: 1.9vmin; letter-spacing: .3vmin; color: #3a4656; text-transform: uppercase; pointer-events: none; }
 
-  .macro { border-radius: 2.4vmin; background: #2a2038; border: 1px solid #6a4a9c; color: #d9c8ff;
-    min-width: 18vmin; height: 10vmin; padding: 0 2.4vmin; font-size: 3vmin; letter-spacing: .15vmin;
-    font-weight: 700; }
-  .macro:active { background: #3d2c53; }
+  .macro { width: 11vmin; height: 11vmin; border-radius: 50%; background: #2a2038; border: 1px solid #6a4a9c;
+    color: #e6d9ff; display: grid; place-items: center; padding: 0; font-size: 4.8vmin; line-height: 1; }
+  .macro.txt { font-size: 2.5vmin; font-weight: 800; letter-spacing: .1vmin; }
+  .macro:active, .macro.on { background: #3d2c53; box-shadow: 0 0 0 2px #6a4a9c inset; }
 
   #hud { position: absolute; top: 1.5vmin; left: 50%; transform: translateX(-50%); display: flex;
     gap: 1.4vmin; z-index: 20; align-items: center; }
   #hud button { padding: 1.2vmin 2.2vmin; border-radius: 1.6vmin; font-size: 2.4vmin; background: #17202b; color: #cdd6e2; }
+  #bperfis { display: grid; place-items: center; padding: 1vmin 1.9vmin !important; font-size: 3.1vmin !important; }
+  #bperfis svg { width: 1em; height: 1em; display: block; }
   #st { font-size: 2.6vmin; font-weight: 800; padding: .6vmin 2vmin; border-radius: 1.2vmin;
     color: #4b5766; letter-spacing: .1vmin; }
   #st.on1 { color: #7db6ff; background: rgba(47,109,246,.18); border: 1px solid #2f6df6; }
@@ -96,7 +98,8 @@ export function gamePage({ CSS, SVG }) {
 <div id="hud">
   <span id="st"></span>
   <button id="bmodo">JOGO</button>
-  <button id="bperfis">&#8862;</button>
+  <button id="bperfis" title="Início"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 11.2 12 4.4l8 6.8V19a1.2 1.2 0 0 1-1.2 1.2h-4V14h-5.6v6.2h-4A1.2 1.2 0 0 1 4 19z"/></svg></button>
   <button id="bedit">&#9998; Editar</button>
 </div>
 <div id="editor">
@@ -124,7 +127,7 @@ const st = document.getElementById('st');
 const stage = document.getElementById('stage');
 const state = {a:0,b:0,x:0,y:0,lb:0,rb:0,back:0,start:0,du:0,dd:0,dl:0,dr:0,
                lx:0,ly:0,rx:0,ry:0,lt:0,rt:0};
-let ws, dirty = false, editing = false, selected = null;
+let ws, dirty = false, editing = false, selected = null, selecionados = [];
 let macros = [];   // vem de pixelpadMacros, configuradas em /macros
 
 // ---------------------------------------------------------------- nos do controle
@@ -307,7 +310,7 @@ function aplicar() {
     el.style.top = L.y + '%';
     el.style.transform = 'translate(-50%,-50%) scale(' + (L.s || 1) + ')';
     el.classList.toggle('hid', !!L.hid);
-    el.classList.toggle('sel', editing && selected === id);
+    el.classList.toggle('sel', editing && selecionados.indexOf(id) >= 0);
   }
   for (const m of macros) {
     const id = m._id;
@@ -320,14 +323,16 @@ function aplicar() {
       stage.appendChild(el);
       ligarMacro(el, m);
     }
-    const rot = (m.nome || 'MACRO').toUpperCase().slice(0, 10);
+    // macro sem icone (as antigas) usa o raio, igual ao da tela de macros
+    const rot = m.icone || '\u26A1';
+    el.classList.remove('txt');
     if (el.textContent !== rot) el.textContent = rot;
     const L = dados.nodes[id] || { x: 30, y: 62, s: 1 };
     el.style.left = L.x + '%';
     el.style.top = L.y + '%';
     el.style.transform = 'translate(-50%,-50%) scale(' + (L.s || 1) + ')';
     el.classList.toggle('hid', !!L.hid);
-    el.classList.toggle('sel', editing && selected === id);
+    el.classList.toggle('sel', editing && selecionados.indexOf(id) >= 0);
   }
 }
 
@@ -484,38 +489,54 @@ function ligarStick(el, id) {
 // ---------------------------------------------------------------- editor
 const acharMacro = (id) => macros.find(m => m._id === id);
 
+// as 4 setas andam juntas: editar uma por uma nao faz sentido
+const GRUPO_DPAD = ['du', 'dd', 'dl', 'dr'];
+const grupoDe = (id) => (GRUPO_DPAD.indexOf(id) >= 0 ? GRUPO_DPAD : [id]);
+const idsSelecionados = () => (selecionados.length ? selecionados : (selected ? [selected] : []));
+
 function selecionar(id) {
   selected = id;
+  selecionados = grupoDe(id);
   const L = dados.nodes[id];
   document.getElementById('beye').classList.toggle('on', !!(L && L.hid));
   aplicar();
 }
 
-function alvoSelecionado() {
-  return selected ? dados.nodes[selected] : null;
-}
-
 document.getElementById('bedit').onclick = () => {
   editing = !editing;
   document.body.classList.toggle('editing', editing);
-  if (!editing) selected = null;
+  if (!editing) { selected = null; selecionados = []; }
   document.getElementById('bedit').textContent = editing ? '\u2713 OK' : '\u270E Editar';
   aplicar();
 };
 
 document.getElementById('bdone').onclick = () => document.getElementById('bedit').click();
 
-document.getElementById('bminus').onclick = () => {
-  const L = alvoSelecionado(); if (!L) return;
-  L.s = Math.max(0.35, Math.round(((L.s || 1) - 0.1) * 100) / 100); salvar(); aplicar();
-};
-document.getElementById('bplus').onclick = () => {
-  const L = alvoSelecionado(); if (!L) return;
-  L.s = Math.min(3, Math.round(((L.s || 1) + 0.1) * 100) / 100); salvar(); aplicar();
-};
+/** Muda o tamanho de todos os controles selecionados (as setas sao um bloco). */
+function escalar(delta) {
+  const ids = idsSelecionados();
+  let mudou = false;
+  for (const id of ids) {
+    const L = dados.nodes[id];
+    if (!L) continue;
+    L.s = Math.min(3, Math.max(0.35, Math.round(((L.s || 1) + delta) * 100) / 100));
+    mudou = true;
+  }
+  if (mudou) { salvar(); aplicar(); }
+}
+
+document.getElementById('bminus').onclick = () => escalar(-0.1);
+document.getElementById('bplus').onclick = () => escalar(0.1);
 document.getElementById('beye').onclick = () => {
-  const L = alvoSelecionado(); if (!L) return;
-  L.hid = !L.hid; salvar(); selecionar(selected);
+  const ids = idsSelecionados();
+  if (!ids.length) return;
+  const algumVisivel = ids.some(id => dados.nodes[id] && !dados.nodes[id].hid);
+  for (const id of ids) {
+    const L = dados.nodes[id];
+    if (L) L.hid = algumVisivel;
+  }
+  salvar();
+  selecionar(selected);
 };
 document.getElementById('breset').onclick = () => {
   document.getElementById('confirma').classList.add('aberto');
@@ -540,19 +561,26 @@ let arrastando = null;
 stage.addEventListener('pointerdown', ev => {
   if (!editing) return;
   const no = ev.target.closest('.node');
-  if (!no) { selected = null; aplicar(); return; }
+  if (!no) { selected = null; selecionados = []; aplicar(); return; }
   selecionar(no.dataset.id);
-  const L = alvoSelecionado(); if (!L) return;
+  const membros = [];
+  for (const id of selecionados) {
+    const L = dados.nodes[id];
+    if (L) membros.push({ L: L, x0: L.x, y0: L.y });
+  }
+  if (!membros.length) return;
   const r = stage.getBoundingClientRect();
-  arrastando = { id: no.dataset.id, px: ev.clientX, py: ev.clientY, x0: L.x, y0: L.y, w: r.width, h: r.height, L: L };
+  arrastando = { px: ev.clientX, py: ev.clientY, w: r.width, h: r.height, membros: membros };
   no.setPointerCapture(ev.pointerId);
 });
 stage.addEventListener('pointermove', ev => {
   if (!arrastando) return;
   const dx = (ev.clientX - arrastando.px) / arrastando.w * 100;
   const dy = (ev.clientY - arrastando.py) / arrastando.h * 100;
-  arrastando.L.x = Math.round((arrastando.x0 + dx) * 10) / 10;
-  arrastando.L.y = Math.round((arrastando.y0 + dy) * 10) / 10;
+  for (const m of arrastando.membros) {
+    m.L.x = Math.round((m.x0 + dx) * 10) / 10;
+    m.L.y = Math.round((m.y0 + dy) * 10) / 10;
+  }
   aplicar();
 });
 stage.addEventListener('pointerup', () => { if (arrastando) { arrastando = null; salvar(); } });

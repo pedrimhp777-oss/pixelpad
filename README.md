@@ -116,7 +116,7 @@ Toque em **✎ Editar** e os controles ficam translúcidos, pra você ver o jogo
 deles enquanto arruma. A barra do editor fica no **canto superior esquerdo**, fora
 do caminho do polegar:
 
-- **arraste** qualquer botão pra mover
+- **arraste** qualquer botão pra mover (as 4 setas andam juntas, como um bloco só)
 - **−** e **+** mudam o tamanho do botão selecionado
 - **👁** oculta o botão (útil pra tirar o que você nunca usa do caminho)
 - **↻** volta tudo pro lugar de fábrica
@@ -137,7 +137,8 @@ M1                                  ✎  🗑
 
 **+ Nova macro** abre o editor:
 
-- **Nome** — o que vai escrito no botão
+- **Nome**
+- **Ícone** — 12 opções + o 🎲 que sorteia um, pra diferenciar cada macro de relance
 - **Repetir enquanto segura** — turbo: repete a sequência enquanto o botão estiver
   apertado
 - **Passo 1, 2, 3…** — em cada passo você toca nos botões que devem ser segurados
@@ -145,8 +146,8 @@ M1                                  ✎  🗑
 - passo sem nenhum botão = pausa, pra dar respiro entre as partes do combo
 - **+ Adicionar passo** quantas vezes quiser, **Salvar**
 
-Cada macro salva vira **um botão extra no controle, em todos os estilos**. Ele
-aparece no meio-esquerda da tela e você arrasta/dimensiona como qualquer outro
+Cada macro salva vira **um botão redondo no controle, em todos os estilos**, com o
+ícone escolhido na criação (⚡ 🔥 🎯 🐉 …). Ele aparece no meio-esquerda da tela e você arrasta/dimensiona como qualquer outro
 botão. Apertar dispara a sequência.
 
 A sequência é executada **no PC**, não no celular — o intervalo entre os comandos

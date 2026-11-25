@@ -56,6 +56,8 @@ export function macrosPage({ SVG, nome = '' }) {
   .rolagem { flex: 1; overflow-y: auto; margin: 14px -2px 0; padding: 0 2px; }
   .mac { background: #171e2a; border: 1px solid #222c3c; border-radius: 16px; padding: 14px 16px;
     margin-bottom: 10px; display: flex; align-items: center; gap: 12px; }
+  .mac .ic { width: 40px; height: 40px; border-radius: 50%; background: #101620; border: 1px solid #2b3a4d;
+    display: grid; place-items: center; font-size: 18px; flex: none; }
   .mac .txt { flex: 1; min-width: 0; }
   .mac b { display: block; font-size: 16px; font-weight: 800; margin-bottom: 3px; }
   .mac small { display: block; font-size: 12px; color: #8a94a3; white-space: nowrap;
@@ -78,6 +80,13 @@ export function macrosPage({ SVG, nome = '' }) {
   #fNome { margin: 0 16px; width: calc(100% - 32px); background: #101620; border: 1px solid #2b3a4d;
     color: #e9ecf1; border-radius: 14px; padding: 14px 16px; font: inherit; font-size: 15px; }
   #fNome:focus { outline: 0; border-color: #2f6df6; }
+
+  .icones { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px 4px; }
+  .icones button { width: 42px; height: 42px; border-radius: 50%; background: #101620;
+    border: 1px solid #2b3a4d; color: #e9ecf1; font-size: 18px; line-height: 1; display: grid;
+    place-items: center; padding: 0; }
+  .icones button.on { background: #2f6df6; border-color: #2f6df6; }
+  .icones button.sorte { border-style: dashed; color: #8a94a3; }
 
   .turbo { display: flex; align-items: center; gap: 12px; padding: 14px 18px; }
   .turbo .txt { flex: 1; }
@@ -146,6 +155,7 @@ export function macrosPage({ SVG, nome = '' }) {
     <h1 id="titulo">Nova macro</h1>
   </div>
   <input id="fNome" maxlength="14" placeholder="Nome" autocomplete="off" spellcheck="false">
+  <div class="icones" id="fIcones"></div>
   <label class="turbo">
     <div class="txt">
       <b>Repetir enquanto segura</b>
@@ -230,6 +240,34 @@ function resumo(m) {
   return partes.join(' \u00b7 ');
 }
 
+const ICONES = ['\u26A1', '\uD83D\uDD25', '\uD83D\uDCA5', '\uD83C\uDFAF', '\uD83C\uDF00', '\uD83D\uDE80',
+  '\u2B50', '\uD83D\uDEE1\uFE0F', '\uD83C\uDFB2', '\uD83D\uDC09', '\u2694\uFE0F', '\uD83C\uDF44'];
+const iconeAleatorio = function () { return ICONES[Math.floor(Math.random() * ICONES.length)]; };
+
+function desenharIcones() {
+  const alvo = document.getElementById('fIcones');
+  alvo.innerHTML = '';
+  ICONES.forEach(function (ic) {
+    const b = document.createElement('button');
+    b.textContent = ic;
+    if (editando && editando.icone === ic) b.classList.add('on');
+    b.onclick = function () {
+      editando.icone = ic;
+      desenharIcones();
+    };
+    alvo.appendChild(b);
+  });
+  const sorte = document.createElement('button');
+  sorte.className = 'sorte';
+  sorte.textContent = '\uD83C\uDFB2';
+  sorte.title = 'Sortear icone';
+  sorte.onclick = function () {
+    editando.icone = iconeAleatorio();
+    desenharIcones();
+  };
+  alvo.appendChild(sorte);
+}
+
 function desenharLista() {
   const alvo = document.getElementById('lista');
   if (!macros.length) {
@@ -240,7 +278,8 @@ function desenharLista() {
   macros.forEach(function (m) {
     const d = document.createElement('div');
     d.className = 'mac';
-    d.innerHTML = '<div class="txt"><b>' + esc(m.nome || 'MACRO') + '</b>'
+    d.innerHTML = '<span class="ic">' + (m.icone || '\u26A1') + '</span>'
+      + '<div class="txt"><b>' + esc(m.nome || 'MACRO') + '</b>'
       + '<small>' + resumo(m) + '</small></div>'
       + '<button class="lapis" title="editar">&#9998;</button>'
       + '<button class="lixo" title="apagar">&#128465;</button>';
@@ -310,12 +349,14 @@ function abrir(id) {
   const m = id ? macros.find(function (x) { return x.id === id; }) : null;
   editando = m
     ? JSON.parse(JSON.stringify(m))
-    : { id: 'm' + Date.now().toString(36), nome: '', turbo: false, passos: [] };
+    : { id: 'm' + Date.now().toString(36), nome: '', icone: iconeAleatorio(), turbo: false, passos: [] };
+  if (!editando.icone) editando.icone = iconeAleatorio();
   if (!editando.passos.length) editando.passos.push({ b: [], ms: 100 });
   document.getElementById('titulo').textContent = m ? 'Editar macro' : 'Nova macro';
   document.getElementById('fNome').value = editando.nome || '';
   document.getElementById('fTurbo').checked = !!editando.turbo;
   document.getElementById('editor').classList.add('aberto');
+  desenharIcones();
   desenharPassos();
   // o voltar do Android fecha o editor em vez de sair da tela
   try { history.pushState({ editor: 1 }, ''); } catch (e) {}
