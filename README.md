@@ -123,7 +123,12 @@ do caminho do polegar:
 - **✓** sai do editor
 
 Cada botão é independente: pode afastar o △ do ○, subir o analógico, encolher o
-L2. Tudo fica salvo no celular e volta igual na próxima vez.
+L2. Tudo fica salvo no celular e volta igual na próxima vez — o modo MENU e o modo
+JOGO guardam layouts separados, e cada um salva por conta própria.
+
+O layout só é refeito do zero quando você **escolhe outro estilo** na tela inicial
+(PlayStation → Xbox, por exemplo). Entrar de novo pelo mesmo card não mexe em nada:
+seu ajuste continua lá.
 
 As setas do direcional são **um bloco**: ao selecionar uma, as quatro ficam
 selecionadas. O **−** e **+** mudam o tamanho *e* a distância entre elas na mesma
