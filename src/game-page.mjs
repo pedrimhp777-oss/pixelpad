@@ -184,8 +184,8 @@ const MACROS_KEY = 'pixelpadMacros';
 const DEF = {
   l1:{x:8,y:11,s:1}, l2:{x:8,y:25,s:1},
   r1:{x:92,y:11,s:1}, r2:{x:92,y:25,s:1},
-  du:{x:9,y:48,s:1}, dd:{x:9,y:71,s:1}, dl:{x:4.2,y:59.5,s:1}, dr:{x:13.8,y:59.5,s:1},
-  ls:{x:9,y:88,s:.85}, rs:{x:91,y:88,s:.85},
+  du:{x:9,y:44,s:1}, dd:{x:9,y:67,s:1}, dl:{x:4.2,y:55.5,s:1}, dr:{x:13.8,y:55.5,s:1},
+  ls:{x:9,y:86,s:.8}, rs:{x:91,y:86,s:.8},
   y:{x:91,y:41.5,s:1}, x:{x:87.5,y:52.5,s:1}, b:{x:94.5,y:52.5,s:1}, a:{x:91,y:63.5,s:1},
   tp:{x:50,y:28,s:.9}, share:{x:50,y:92,s:.8}, options:{x:58,y:92,s:.8}, ps:{x:50,y:80,s:.8},
 };
@@ -196,7 +196,7 @@ const V1 = {
 };
 
 let dados = carregar();
-const MIGRA_KEY = 'pixelpadLayoutV5';
+const MIGRA_KEY = 'pixelpadLayoutV7';
 
 function migrarLayout() {
   // 0.10.0 deixou os botoes maiores: o layout salvo da versao anterior ficaria
@@ -307,17 +307,57 @@ function montarPreset(marca, estilo) {
   return nodes;
 }
 
-/** Se o usuario escolheu um perfil novo na tela inicial, aplica ele. */
+/** Refaz um layout salvo (de um modo) a partir do preset, mantendo as macros no lugar. */
+function refazerModo(modo, marca, estilo) {
+  try {
+    const chave = LKEY + ':' + modo;
+    const g = JSON.parse(localStorage.getItem(chave));
+    if (!g || !g.nodes) return;
+    const antigos = g.nodes;
+    g.nodes = montarPreset(marca || g.marca || 'ps', estilo || g.estilo || 'padrao');
+    for (const id in antigos) if (id.charAt(0) === 'k') g.nodes[id] = antigos[id];
+    g.modo = modo;
+    g.marca = marca || g.marca || 'ps';
+    g.estilo = estilo || g.estilo || 'padrao';
+    g.perfil = g.marca + ':' + g.estilo;
+    for (const id of ['ls', 'rs']) if (g.nodes[id]) g.nodes[id].hid = (modo === 'menu');
+    localStorage.setItem(chave, JSON.stringify(g));
+  } catch (e) {}
+}
+
+/**
+ * Aplica o estilo escolhido na tela inicial - e so isso.
+ *
+ * A regra: o layout salvo guarda de qual estilo ele veio (campo perfil, ex.:
+ * "ps:padrao"). Se voce entrar de novo pelo MESMO card, nada e mexido: o layout
+ * que voce arrumou continua. Se escolher OUTRO estilo (Xbox, Nintendo...), ai sim
+ * o preset daquele estilo entra no lugar.
+ *
+ * Antes a comparacao usava dados.estilo, que ficava gravado como "meu" nos layouts
+ * antigos - nunca batia com "padrao", entao o preset era reaplicado a cada abertura
+ * e o layout do modo MENU nunca salvava.
+ */
 function sincronizarPerfil() {
   let p = null;
   try { p = JSON.parse(localStorage.getItem(PERFIL_KEY)); } catch (e) {}
-  if (!p || !p.marca) return;
+  if (!p || !p.marca || !MARCAS[p.marca]) return;
   const estilo = p.estilo && ESTILOS[p.estilo] ? p.estilo : 'padrao';
-  if (!MARCAS[p.marca]) return;
-  if (dados.marca === p.marca && dados.estilo === estilo) return;
-  dados.nodes = montarPreset(p.marca, estilo);
+  const alvo = p.marca + ':' + estilo;
+
+  if (!ESTILOS[dados.estilo]) dados.estilo = estilo;
+  const atual = dados.perfil || ((dados.marca || 'ps') + ':' + dados.estilo);
   dados.marca = p.marca;
+  dados.perfil = alvo;
+  if (atual === alvo) { salvar(); return; }
+
+  dados.nodes = montarPreset(p.marca, estilo);
   dados.estilo = estilo;
+  if (dados.modo === 'menu') {
+    for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
+  }
+  // trocar de estilo vale pros dois modos: senao o JOGO ficaria com o layout do estilo antigo
+  refazerModo(dados.modo === 'menu' ? 'jogo' : 'menu', p.marca, estilo);
+  sincronizarMacros();
   salvar();
 }
 
@@ -490,7 +530,9 @@ function ligarBotao(el, b) {
     if (pertenceAoEditor(ev)) return;
     ev.preventDefault();
     if (editing) { selecionar(el.id); return; }
-    state[b] = 1; el.classList.add('on'); push();
+    // L2/R2 sao gatilhos analogicos (0..255): mandar 1 nao aperta nada nos jogos
+    state[b] = (b === 'lt' || b === 'rt') ? 255 : 1;
+    el.classList.add('on'); push();
     if (navigator.vibrate) navigator.vibrate(8);
   });
   const soltar = ev => {

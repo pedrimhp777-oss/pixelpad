@@ -37,7 +37,7 @@ export const MARCAS = {
       a: ['#0f7b0f', '#ffffff'], b: ['#c62828', '#ffffff'],
       x: ['#1565c0', '#ffffff'], y: ['#c79a00', '#1a1a1a'],
     },
-    rotulos: { l1: 'LB', l2: 'LT', r1: 'RB', r2: 'RT', share: 'VIEW', options: 'MENU', ps: 'X' },
+    rotulos: { l1: 'LB', l2: 'LT', r1: 'RB', r2: 'RT', share: 'VIEW', options: 'MENU', ps: 'XBOX' },
     ocultar: [],
   },
   snes: {
@@ -49,7 +49,7 @@ export const MARCAS = {
       y: ['#2a3f8f', '#cdd6ff'], x: ['#2f7a3f', '#c9f0d2'],
       b: ['#9c2a2a', '#ffd6d6'], a: ['#9c7d10', '#fff0b8'],
     },
-    rotulos: { l1: 'L', r1: 'R' },
+    rotulos: { l1: 'L', r1: 'R', ps: 'HOME' },
     // controle de 4 botoes: sem analogico, sem gatilho analogico, sem touchpad
     ocultar: ['ls', 'rs', 'lt', 'rt', 'tp', 'ps'],
   },
@@ -66,10 +66,10 @@ export const ESTILOS = {
     // O direcional sobe quando o analogico aparece; o analogico fica logo abaixo.
     nodes: {
       l1: [8, 11, 1], l2: [8, 25, 1], r1: [92, 11, 1], r2: [92, 25, 1],
-      du: [9, 48, 1], dd: [9, 71, 1], dl: [4.2, 59.5, 1], dr: [13.8, 59.5, 1],
-      ls: [9, 88, 0.85],
+      du: [9, 44, 1], dd: [9, 67, 1], dl: [4.2, 55.5, 1], dr: [13.8, 55.5, 1],
+      ls: [9, 86, 0.8],
       y: [91, 41.5, 1], x: [87.5, 52.5, 1], b: [94.5, 52.5, 1], a: [91, 63.5, 1],
-      rs: [91, 88, 0.85],
+      rs: [91, 86, 0.8],
       tp: [50, 28, 0.9], share: [50, 92, 0.8], options: [58, 92, 0.8], ps: [50, 80, 0.8],
     },
   },

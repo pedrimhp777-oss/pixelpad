@@ -155,7 +155,8 @@ function cartao(id, m) {
 }
 
 function escolher(id) {
-  // um toque ja entra: nao tem botao de jogar
+  // um toque ja entra: nao tem botao de jogar. O gamepad so refaz o layout
+  // quando o estilo escolhido e diferente do que ja esta salvo.
   perfil = { marca: id, estilo: 'padrao' };
   try { localStorage.setItem(CHAVE, JSON.stringify(perfil)); } catch (e) {}
   irJogo();
