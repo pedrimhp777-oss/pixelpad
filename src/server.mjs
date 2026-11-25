@@ -20,6 +20,7 @@ import { WebSocketServer } from 'ws';
 import { createClient } from './vigem.mjs';
 import { gamePage } from './game-page.mjs';
 import { startPage } from './start-page.mjs';
+import { macrosPage } from './macros-page.mjs';
 import { ensureCerts } from './certs.mjs';
 
 const LOG = new URL('../phone-pad.log', import.meta.url).pathname.replace(/^\//, '');
@@ -103,25 +104,70 @@ function limparMacro(slot) {
   for (const t of slot.timers || []) clearTimeout(t);
   slot.timers = [];
   slot.macro = {};
+  slot.turbo = false;
 }
 
-/** Executa a sequencia no PC: o tempo do combo nao depende do celular. */
-function rodarMacro(slot, passos) {
-  if (!slot || !slot.pad || !Array.isArray(passos)) return;
-  limparMacro(slot);
-  let atraso = 0;
-  for (const p of passos.slice(0, 40)) {
-    if (!p || !p.b) continue;
-    const b = String(p.b);
-    const ms = Math.max(20, Math.min(3000, (p.ms | 0) || 80));
-    const gap = Math.max(0, Math.min(2000, p.gap | 0));
-    slot.timers.push(setTimeout(() => { slot.macro[b] = 1; enviarEstado(slot); }, atraso));
-    atraso += ms;
-    slot.timers.push(setTimeout(() => { slot.macro[b] = 0; enviarEstado(slot); }, atraso));
-    atraso += gap;
+// Botoes que uma macro pode apertar (os mesmos que o controle virtual tem)
+const BOTOES_MACRO = new Set(['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'back', 'start',
+  'du', 'dd', 'dl', 'dr']);
+
+function normalizarPassos(passos) {
+  const lista = [];
+  for (const p of (Array.isArray(passos) ? passos : []).slice(0, 40)) {
+    if (!p) continue;
+    const b = (Array.isArray(p.b) ? p.b : []).filter(x => BOTOES_MACRO.has(x));
+    lista.push({ b, ms: Math.max(20, Math.min(3000, (p.ms | 0) || 100)) });
   }
-  slot.timers.push(setTimeout(() => { slot.macro = {}; enviarEstado(slot); }, atraso + 20));
-  logLine(`P${slot.n} macro com ${passos.length} passo(s)`);
+  return lista;
+}
+
+/**
+ * Executa a sequencia no PC: o tempo do combo nao depende do celular nem do Wi-Fi.
+ * Passo com botoes segura eles por ms; passo vazio e pausa.
+ * Com turbo, a sequencia recomeca sozinha ate o celular mandar macroStop.
+ */
+function rodarMacro(slot, passos, turbo) {
+  if (!slot || !slot.pad) return;
+  const lista = normalizarPassos(passos);
+  limparMacro(slot);
+  if (!lista.length) { enviarEstado(slot); return; }
+  slot.turbo = !!turbo;
+
+  const ciclo = () => {
+    let atraso = 0;
+    for (const p of lista) {
+      if (p.b.length) {
+        const bs = p.b;
+        slot.timers.push(setTimeout(() => {
+          for (const k of bs) slot.macro[k] = 1;
+          enviarEstado(slot);
+        }, atraso));
+        atraso += p.ms;
+        slot.timers.push(setTimeout(() => {
+          for (const k of bs) slot.macro[k] = 0;
+          enviarEstado(slot);
+        }, atraso));
+      } else {
+        atraso += p.ms;   // pausa
+      }
+    }
+    if (slot.turbo) {
+      slot.timers.push(setTimeout(() => { if (slot.turbo) ciclo(); }, atraso + 30));
+    } else {
+      slot.timers.push(setTimeout(() => { slot.macro = {}; enviarEstado(slot); }, atraso + 20));
+    }
+    if (slot.timers.length > 240) slot.timers = slot.timers.slice(-120);
+  };
+
+  ciclo();
+  logLine(`P${slot.n} macro: ${lista.length} passo(s)${slot.turbo ? ' (turbo)' : ''}`);
+}
+
+/** Soltou o botao: turbo para e limpa o que estava apertado. */
+function pararMacro(slot) {
+  if (!slot) return;
+  limparMacro(slot);
+  enviarEstado(slot);
 }
 
 const VERSAO = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version; } catch { return '0'; } })();
@@ -300,6 +346,7 @@ const SVG = {
 
 const GAME_PAGE = gamePage({ CSS, SVG });
 const START_PAGE = () => startPage({ SVG, nome: NOME });
+const MACROS_PAGE = () => macrosPage({ SVG, nome: NOME });
 
 const MANIFEST = JSON.stringify({
   name: 'Gamepad do PC',
@@ -359,6 +406,10 @@ function handle(req, res) {
   if (u === '/inicio' || u === '/start' || u === '/perfis') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(START_PAGE());
+  }
+  if (u === '/macros' || u === '/macro') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(MACROS_PAGE());
   }
   if (u === '/status') {
     const ip = req.socket.remoteAddress || '';
@@ -594,7 +645,8 @@ function onSocket(ws, req) {
       else if (m.t === 'scr') scroll(m.dy);
       else if (m.t === 'key') key(m.vk);
       else if (m.t === 'pad') { if (slot) { slot.ultimo = m.d; enviarEstado(slot); } }
-      else if (m.t === 'macro') { if (slot) rodarMacro(slot, m.steps); }
+      else if (m.t === 'macro') { if (slot) rodarMacro(slot, m.passos, m.turbo); }
+      else if (m.t === 'macroStop') { if (slot) pararMacro(slot); }
     } catch (e) { logLine('erro no handler: ' + (e && e.message)); }
   });
 }

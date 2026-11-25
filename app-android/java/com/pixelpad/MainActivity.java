@@ -200,13 +200,8 @@ public class MainActivity extends Activity {
                         List<PC> encontrados;
                         synchronized (achados) { encontrados = new ArrayList<>(achados.values()); }
 
-                        // um unico PC e o mesmo da ultima vez: entra direto
-                        String ultimo = prefs.getString("url", null);
-                        if (!jaEscolheu && encontrados.size() == 1 && ultimo != null
-                                && ultimo.equals(encontrados.get(0).url)) {
-                            conectar(encontrados.get(0).url);
-                            return;
-                        }
+                        // sem auto-conexao: o usuario escolhe no toque (pode haver outro
+                        // PixelPad na rede, e entrar sozinho no PC errado seria pior)
                         atualizarLista(encontrados);
                         if (aviso != null) {
                             status.setTextColor(0xFFFFB4B4);
@@ -459,9 +454,10 @@ public class MainActivity extends Activity {
     public void onBackPressed() {
         if (painel.getVisibility() != View.VISIBLE) {
             String atual = web.getUrl();
-            if (atual != null && atual.contains("/game")) {
-                // do controle, voltar leva pra escolha do estilo, nao fecha o app
-                locationInicio(atual);
+            // dentro do site, voltar anda uma tela pra tras (macros -> inicio -> lista)
+            if (atual != null && atual.startsWith("http")) {
+                if (atual.contains("/inicio")) mostrarEscolha(null);
+                else irPara(atual, "/inicio");
                 return;
             }
             mostrarEscolha(null);
@@ -470,11 +466,14 @@ public class MainActivity extends Activity {
         moveTaskToBack(true);
     }
 
-    private void locationInicio(String atual) {
-        retrato();
-        int i = atual.indexOf("/game");
-        if (i > 0) web.loadUrl(atual.substring(0, i) + "/inicio" + (atual.indexOf('?') > 0
-                ? atual.substring(atual.indexOf('?')) : ""));
+    /** Troca a rota mantendo o host e o token. */
+    private void irPara(String atual, String rota) {
+        String base = atual;
+        int q = atual.indexOf('?');
+        String query = q > 0 ? atual.substring(q) : "";
+        int corte = atual.indexOf('/', atual.indexOf("//") + 3);
+        if (corte > 0) base = atual.substring(0, corte);
+        web.loadUrl(base + rota + query);
     }
 
     @Override

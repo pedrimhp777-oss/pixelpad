@@ -23,6 +23,10 @@ export function startPage({ SVG, nome = '' }) {
   .wrap { height: 100%; display: flex; flex-direction: column; padding: 22px 18px 16px; }
 
   .topo { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
+  .topo .id { flex: 1; min-width: 0; }
+  #macros { flex: none; width: 44px; height: 44px; border-radius: 13px; border: 1px solid #1e2836;
+    background: #141a24; color: #6b7787; font-size: 17px; line-height: 1; }
+  #macros:active { background: #1b222c; color: #ffd34d; }
   .logo { width: 52px; height: 52px; border-radius: 15px; flex: none;
     background: radial-gradient(circle at 32% 28%, #ffd34d, #f09100 70%);
     display: grid; place-items: center; font-weight: 900; font-size: 18px; color: #2a1600;
@@ -77,10 +81,11 @@ export function startPage({ SVG, nome = '' }) {
 <div class="wrap">
   <div class="topo">
     <div class="logo">PP</div>
-    <div>
+    <div class="id">
       <h1>PIXELPAD</h1>
       <p>${nomeSeguro ? 'Conectado em <b>' + nomeSeguro + '</b>' : 'Escolha o controle'}</p>
     </div>
+    <button id="macros" title="Macros">&#9889;</button>
   </div>
 
   <p class="rotulo">ESTILO DO CONTROLE</p>
@@ -155,6 +160,9 @@ document.getElementById('meu').onclick = irJogo;
 document.getElementById('trocar').onclick = function () {
   if (window.PixelPad && PixelPad.dispositivos) PixelPad.dispositivos();
   else location.href = '/pair';
+};
+document.getElementById('macros').onclick = function () {
+  location.href = '/macros' + qs;
 };
 
 desenhar();

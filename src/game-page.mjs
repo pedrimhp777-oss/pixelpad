@@ -1,12 +1,12 @@
 // Pagina do gamepad (/game).
 //
-// Cada botao do controle agora e um no independente: da pra arrastar,
-// aumentar, diminuir e ocultar um por um. No modo edicao os controles ficam
-// translucidos pra voce ver o jogo atras deles.
+// Cada botao do controle e um no independente: da pra arrastar, aumentar,
+// diminuir e ocultar um por um. No modo edicao os controles ficam translucidos
+// pra voce ver o jogo atras deles. A barra do editor fica no canto de cima.
 //
-// Macro: no editor voce grava uma sequencia (toque nos botoes na ordem) e ela
-// vira um botao novo. Ao apertar, o celular manda a sequencia e o PC executa
-// com temporizacao propria - nao depende do tempo do toque no celular.
+// Macro: os botoes vem da tela /macros (configurada na tela inicial). Cada macro
+// vira um botao extra aqui, em todos os estilos, e quem executa a sequencia e o
+// PC - o tempo do combo nao depende do celular.
 
 import { dadosJS } from './presets.mjs';
 
@@ -68,30 +68,12 @@ export function gamePage({ CSS, SVG }) {
   #st.on1 { color: #7db6ff; background: rgba(47,109,246,.18); border: 1px solid #2f6df6; }
   #st.on2 { color: #ff9a92; background: rgba(226,69,60,.18); border: 1px solid #e2453c; }
 
-  #editor { position: absolute; bottom: 0; left: 0; right: 0; display: none; gap: 1.6vmin; padding: 1.8vmin;
-    background: #0b1017f2; z-index: 30; align-items: center; justify-content: center; flex-wrap: wrap; }
-  #editor button { padding: 1.8vmin 3vmin; border-radius: 2vmin; font-size: 2.8vmin; background: #1b2a3d; color: #cdd6e2; }
+  #editor { position: absolute; top: 1.4vmin; left: 1.4vmin; display: none; gap: .8vmin; padding: 1vmin;
+    background: #0b1017f2; border: 1px solid #1e2a3a; border-radius: 2vmin; z-index: 30; align-items: center; }
+  #editor button { padding: 1.1vmin 1.8vmin; border-radius: 1.4vmin; font-size: 2.5vmin; background: #1b2a3d;
+    color: #cdd6e2; min-width: 6.4vmin; }
   #editor button.on { background: #2b6df6; color: #fff; }
-  #editor span { font-size: 2.4vmin; color: #7db6ff; min-width: 18vmin; text-align: center; }
   body.editing #editor { display: flex; }
-
-  #modal { position: absolute; inset: 0; background: #05070af2; z-index: 50; display: none;
-    flex-direction: column; align-items: center; justify-content: center; gap: 2.4vmin; padding: 6vmin; }
-  #modal.aberto { display: flex; }
-  #modal.gravando { background: #05070a55; pointer-events: none; justify-content: flex-start;
-    padding-top: 3vmin; gap: 1vmin; }
-  #modal.gravando .row { pointer-events: auto; }
-  #modal.gravando p, #modal.gravando input { display: none; }
-  #modal.gravando h3 { font-size: 3.2vmin; color: #ff8a80; }
-  #modal h3 { font-size: 4vmin; color: #e6e8ec; margin: 0; font-weight: 600; }
-  #modal p { margin: 0; font-size: 2.8vmin; color: #8a94a3; text-align: center; line-height: 1.6; max-width: 80vmin; }
-  #modal input { font-size: 3.4vmin; padding: 2vmin 3vmin; border-radius: 2vmin; border: 1px solid #2b3a4d;
-    background: #101620; color: #e6e8ec; text-align: center; width: 60vmin; }
-  #modal .row { display: flex; gap: 2vmin; flex-wrap: wrap; justify-content: center; }
-  #modal button { padding: 2.2vmin 3.6vmin; border-radius: 2vmin; font-size: 3vmin; background: #1b2a3d; color: #cdd6e2; }
-  #modal button.go { background: #2b6df6; color: #fff; }
-  #modal button.rec { background: #b8322a; color: #fff; }
-  #passos { font-size: 2.6vmin; color: #b9a6ff; text-align: center; line-height: 1.7; word-break: break-word; }
 
   #rot { display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
     text-align: center; font-size: 5vmin; padding: 10vmin; color: #7db6ff; }
@@ -102,29 +84,14 @@ export function gamePage({ CSS, SVG }) {
   <span id="st"></span>
   <button id="bmodo">JOGO</button>
   <button id="bperfis">&#8862;</button>
-  <button id="bfull">&#9974;</button>
   <button id="bedit">&#9998; Editar</button>
 </div>
 <div id="editor">
-  <span id="selLabel">toque num controle</span>
-  <button id="bminus">&minus;</button>
-  <button id="bplus">+</button>
+  <button id="bminus" title="diminuir">&minus;</button>
+  <button id="bplus" title="aumentar">+</button>
   <button id="beye" title="ocultar/mostrar">&#128065;</button>
-  <button id="bdel" title="apagar macro">&#128465;</button>
-  <button id="bmacro">+ Macro</button>
-  <button id="breset">Resetar</button>
-  <button id="bdone">OK</button>
-</div>
-<div id="modal">
-  <h3 id="mTitle">Nova macro</h3>
-  <p id="mHint"></p>
-  <input id="mName" maxlength="14" placeholder="NOME DO BOTAO">
-  <div id="passos"></div>
-  <div class="row">
-    <button id="mRec" class="rec">&#9679; Gravar</button>
-    <button id="mSave" class="go" style="display:none">Salvar</button>
-    <button id="mCancel">Cancelar</button>
-  </div>
+  <button id="breset" title="voltar ao lugar de fábrica">&#8635;</button>
+  <button id="bdone" title="sair do editor">&#10003;</button>
 </div>
 <div id="rot">Gire o celular<br>para a horizontal</div>
 <script>
@@ -135,7 +102,7 @@ const stage = document.getElementById('stage');
 const state = {a:0,b:0,x:0,y:0,lb:0,rb:0,back:0,start:0,du:0,dd:0,dl:0,dr:0,
                lx:0,ly:0,rx:0,ry:0,lt:0,rt:0};
 let ws, dirty = false, editing = false, selected = null;
-let gravando = null;   // { passos:[], t0, btn } durante a gravacao
+let macros = [];   // vem de pixelpadMacros, configuradas em /macros
 
 // ---------------------------------------------------------------- nos do controle
 const NOS = [
@@ -176,6 +143,7 @@ for (const n of NOS) {
 // ---------------------------------------------------------------- layout salvo
 const LKEY = 'padLayoutV3';
 const PERFIL_KEY = 'pixelpadPerfil';
+const MACROS_KEY = 'pixelpadMacros';
 const DEF = {
   l2:{x:8,y:12,s:1}, l1:{x:8,y:28,s:1},
   r1:{x:92,y:12,s:1}, r2:{x:92,y:28,s:1},
@@ -192,14 +160,35 @@ const V1 = {
 
 let dados = carregar();
 function carregar() {
+  // o jogo sempre abre no modo MENU (sem analogicos); o layout de cada modo
+  // fica salvo separado, entao trocar pro JOGO recupera o que voce arrumou.
+  let menu = null;
+  try { menu = JSON.parse(localStorage.getItem(LKEY + ':menu')); } catch (e) {}
+  if (menu && menu.nodes) {
+    menu.modo = 'menu';
+    if (!menu.marca) menu.marca = 'ps';
+    delete menu.macros;
+    return menu;
+  }
+
   let j = null;
   try { j = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
-  if (j && j.nodes) { if (!j.marca) j.marca = 'ps'; if (!j.modo) j.modo = 'jogo'; return j; }
+  if (j && j.nodes) {
+    if (!j.marca) j.marca = 'ps';
+    delete j.macros;
+    j.modo = 'menu';
+    for (const id of ['ls', 'rs']) if (j.nodes[id]) j.nodes[id].hid = true;
+    return j;
+  }
 
   // layout da versao anterior: posicoes do usuario viram o "meu layout"
   let v2 = null;
   try { v2 = JSON.parse(localStorage.getItem('padLayoutV2')); } catch (e) {}
-  if (v2 && v2.nodes) { v2.marca = 'ps'; v2.estilo = 'meu'; return v2; }
+  if (v2 && v2.nodes) {
+    v2.marca = 'ps'; v2.estilo = 'meu'; v2.modo = 'menu';
+    for (const id of ['ls', 'rs']) if (v2.nodes[id]) v2.nodes[id].hid = true;
+    return v2;
+  }
 
   // migracao do layout antigo
   let antigo = null;
@@ -217,11 +206,13 @@ function carregar() {
       }
     }
     for (const id in DEF) if (!nodes[id]) nodes[id] = Object.assign({}, DEF[id], { hid: false });
-    return { nodes, macros: [], marca: 'ps', estilo: 'meu' };
+    for (const id of ['ls', 'rs']) if (nodes[id]) nodes[id].hid = true;
+    return { nodes, marca: 'ps', estilo: 'meu', modo: 'menu' };
   }
   const nodes = {};
   for (const id in DEF) nodes[id] = Object.assign({}, DEF[id], { hid: false });
-  return { nodes, macros: [], marca: 'ps', estilo: 'meu' };
+  for (const id of ['ls', 'rs']) if (nodes[id]) nodes[id].hid = true;
+  return { nodes, marca: 'ps', estilo: 'meu', modo: 'menu' };
 }
 
 /** Monta as posicoes de um preset e marca o que a marca esconde. */
@@ -295,26 +286,25 @@ function aplicar() {
     el.classList.toggle('hid', !!L.hid);
     el.classList.toggle('sel', editing && selected === id);
   }
-  for (const m of dados.macros) {
-    let el = document.getElementById(m.id);
+  for (const m of macros) {
+    const id = m._id;
+    let el = document.getElementById(id);
     if (!el) {
       el = document.createElement('button');
       el.className = 'node macro';
-      el.id = m.id;
-      el.dataset.id = m.id;
+      el.id = id;
+      el.dataset.id = id;
       stage.appendChild(el);
-      el.addEventListener('pointerdown', ev => {
-        ev.preventDefault();
-        if (editing) { selecionar(m.id); return; }
-        rodarMacro(m);
-      });
+      ligarMacro(el, m);
     }
-    if (el.textContent !== m.label) el.textContent = m.label;
-    el.style.left = m.x + '%';
-    el.style.top = m.y + '%';
-    el.style.transform = 'translate(-50%,-50%) scale(' + (m.s || 1) + ')';
-    el.classList.toggle('hid', !!m.hid);
-    el.classList.toggle('sel', editing && selected === m.id);
+    const rot = (m.nome || 'MACRO').toUpperCase().slice(0, 10);
+    if (el.textContent !== rot) el.textContent = rot;
+    const L = dados.nodes[id] || { x: 30, y: 62, s: 1 };
+    el.style.left = L.x + '%';
+    el.style.top = L.y + '%';
+    el.style.transform = 'translate(-50%,-50%) scale(' + (L.s || 1) + ')';
+    el.classList.toggle('hid', !!L.hid);
+    el.classList.toggle('sel', editing && selected === id);
   }
 }
 
@@ -360,14 +350,59 @@ setInterval(() => { if (dirty) push(); }, 16);
 
 function rodarMacro(m) {
   if (!ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify({ t: 'macro', steps: m.steps }));
-  if (navigator.vibrate) navigator.vibrate([12, 30, 12]);
+  if (navigator.vibrate) navigator.vibrate(m.turbo ? [8, 20, 8] : 10);
+  ws.send(JSON.stringify({ t: 'macro', passos: m.passos, turbo: !!m.turbo }));
+}
+
+/** Botao de macro: segurar executa; soltar para o turbo. */
+function ligarMacro(el, m) {
+  let apertado = false;
+  el.addEventListener('pointerdown', ev => {
+    if (pertenceAoEditor(ev)) return;
+    ev.preventDefault();
+    if (editing) { selecionar(el.id); return; }
+    apertado = true;
+    el.classList.add('on');
+    rodarMacro(m);
+  });
+  const soltar = () => {
+    if (!apertado) return;
+    apertado = false;
+    el.classList.remove('on');
+    if (m.turbo && ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'macroStop' }));
+  };
+  el.addEventListener('pointerup', soltar);
+  el.addEventListener('pointercancel', soltar);
+  el.addEventListener('pointerleave', soltar);
+}
+
+/** Le as macros da tela /macros e garante um lugar pra cada botao no layout. */
+function sincronizarMacros() {
+  let lista = [];
+  try { lista = JSON.parse(localStorage.getItem(MACROS_KEY) || '[]'); } catch (e) {}
+  macros = (Array.isArray(lista) ? lista : []).filter(m => m && m.id && Array.isArray(m.passos));
+  const usados = {};
+  macros.forEach((m, i) => {
+    m._id = 'k' + m.id;
+    usados[m._id] = 1;
+    if (!dados.nodes[m._id]) {
+      dados.nodes[m._id] = { x: 30, y: 62 + Math.min(i, 3) * 12, s: 1, hid: false };
+    }
+  });
+  // macro apagada na tela de macros sai tambem do layout
+  for (const id of Object.keys(dados.nodes)) {
+    if (id.charAt(0) === 'k' && !usados[id]) delete dados.nodes[id];
+  }
+  for (const el of Array.from(stage.querySelectorAll('.macro'))) {
+    if (!usados[el.id]) el.remove();
+  }
+  salvar();
 }
 
 // ---------------------------------------------------------------- botoes
 function pertenceAoEditor(ev) {
   const alvo = ev.target;
-  return alvo && (alvo.closest('#editor') || alvo.closest('#hud') || alvo.closest('#modal'));
+  return alvo && (alvo.closest('#editor') || alvo.closest('#hud'));
 }
 
 function ligarBotao(el, b) {
@@ -375,23 +410,11 @@ function ligarBotao(el, b) {
     if (pertenceAoEditor(ev)) return;
     ev.preventDefault();
     if (editing) { selecionar(el.id); return; }
-    if (gravando) { gravando.t0 = performance.now(); gravando.btn = b; el.classList.add('on'); return; }
     state[b] = 1; el.classList.add('on'); push();
     if (navigator.vibrate) navigator.vibrate(8);
   });
   const soltar = ev => {
     if (editing) return;
-    if (gravando) {
-      if (gravando.btn === b) {
-        const ms = Math.max(40, Math.round(performance.now() - gravando.t0));
-        gravando.passos.push({ b: b, ms: ms });
-        gravando.btn = null;
-        atualizarPassos();
-        if (navigator.vibrate) navigator.vibrate(14);
-        el.classList.remove('on');
-      }
-      return;
-    }
     state[b] = 0; el.classList.remove('on'); push();
   };
   el.addEventListener('pointerup', soltar);
@@ -436,28 +459,24 @@ function ligarStick(el, id) {
 }
 
 // ---------------------------------------------------------------- editor
+const acharMacro = (id) => macros.find(m => m._id === id);
+
 function selecionar(id) {
   selected = id;
-  const rotulo = document.getElementById('selLabel');
-  const m = dados.macros.find(x => x.id === id);
-  rotulo.textContent = m ? ('macro ' + m.label) : id.toUpperCase();
-  document.getElementById('bdel').style.display = m ? '' : 'none';
-  const L = m || dados.nodes[id];
+  const L = dados.nodes[id];
   document.getElementById('beye').classList.toggle('on', !!(L && L.hid));
   aplicar();
 }
 
 function alvoSelecionado() {
-  const m = dados.macros.find(x => x.id === selected);
-  return m ? m : (selected ? dados.nodes[selected] : null);
+  return selected ? dados.nodes[selected] : null;
 }
 
 document.getElementById('bedit').onclick = () => {
   editing = !editing;
   document.body.classList.toggle('editing', editing);
-  if (!editing) { selected = null; document.getElementById('bdel').style.display = 'none'; }
-  document.getElementById('bedit').textContent = editing ? '\\u2713 OK' : '\\u270E Editar';
-  document.getElementById('selLabel').textContent = editing ? 'toque num controle' : '';
+  if (!editing) selected = null;
+  document.getElementById('bedit').textContent = editing ? '\u2713 OK' : '\u270E Editar';
   aplicar();
 };
 
@@ -475,22 +494,14 @@ document.getElementById('beye').onclick = () => {
   const L = alvoSelecionado(); if (!L) return;
   L.hid = !L.hid; salvar(); selecionar(selected);
 };
-document.getElementById('bdel').onclick = () => {
-  const i = dados.macros.findIndex(x => x.id === selected);
-  if (i < 0) return;
-  const el = document.getElementById(selected); if (el) el.remove();
-  dados.macros.splice(i, 1);
-  selected = null; salvar(); aplicar();
-  document.getElementById('selLabel').textContent = 'toque num controle';
-  document.getElementById('bdel').style.display = 'none';
-};
 document.getElementById('breset').onclick = () => {
   if (!confirm('Voltar os controles para o lugar de fabrica?')) return;
   dados.nodes = {};
   for (const id in DEF) dados.nodes[id] = Object.assign({}, DEF[id], { hid: false });
-  dados.macros = [];
-  for (const m of Array.from(stage.querySelectorAll('.macro'))) m.remove();
-  selected = null; salvar(); aplicarMarca(); aplicar();
+  if (dados.modo === 'menu') for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
+  selected = null;
+  sincronizarMacros();
+  salvar(); aplicarMarca(); aplicar();
 };
 
 // arrastar os nos no modo edicao
@@ -516,87 +527,7 @@ stage.addEventListener('pointermove', ev => {
 stage.addEventListener('pointerup', () => { if (arrastando) { arrastando = null; salvar(); } });
 stage.addEventListener('pointercancel', () => { if (arrastando) { arrastando = null; salvar(); } });
 
-// ---------------------------------------------------------------- macro
-const modal = document.getElementById('modal');
-const mName = document.getElementById('mName');
-const mHint = document.getElementById('mHint');
-const mTitle = document.getElementById('mTitle');
-const mRec = document.getElementById('mRec');
-const mSave = document.getElementById('mSave');
-const passosEl = document.getElementById('passos');
 
-document.getElementById('bmacro').onclick = () => abrirMacro();
-
-function abrirMacro() {
-  gravando = null;
-  mTitle.textContent = 'Nova macro';
-  mHint.textContent = 'Toque em Gravar e depois aperte os botoes na ordem do combo. O tempo que voce segurar cada um vira o tempo do combo.';
-  passosEl.textContent = '';
-  mName.value = '';
-  mName.style.display = '';
-  mRec.style.display = '';
-  mRec.textContent = '\u25CF Gravar';
-  mSave.style.display = 'none';
-  modal.classList.add('aberto');
-}
-
-function fecharModal() { modal.classList.remove('aberto'); modal.classList.remove('gravando'); gravando = null; }
-
-document.getElementById('mCancel').onclick = fecharModal;
-
-mRec.onclick = () => {
-  if (!gravando) {
-    if (editing) { editing = false; document.body.classList.remove('editing'); document.getElementById('bedit').textContent = '\u270E Editar'; aplicar(); }
-    gravando = { passos: [], t0: 0, btn: null };
-    mTitle.textContent = 'Gravando';
-    mHint.textContent = 'Aperte os botoes do controle na ordem do combo. Cada toque conta como um passo.';
-    mRec.textContent = '\u25A0 Parar';
-    modal.classList.add('gravando');
-    passosEl.textContent = 'nenhum passo ainda';
-    return;
-  }
-  // parar
-  const passos = gravando.passos.slice();
-  gravando = null;
-  modal.classList.remove('gravando');
-  if (!passos.length) {
-    mTitle.textContent = 'Nova macro';
-    mHint.textContent = 'Nenhum botao foi apertado. Tente de novo: aperte Gravar e toque nos botoes.';
-    mRec.textContent = '\u25CF Gravar';
-    passosEl.textContent = '';
-    return;
-  }
-  mTitle.textContent = 'Combo gravado';
-  mHint.textContent = 'De um nome pro botao. Depois e so apertar ele no jogo.';
-  mRec.style.display = 'none';
-  mSave.style.display = '';
-  mSave.dataset.passos = JSON.stringify(passos);
-  atualizarPassos(passos);
-  if (!mName.value) mName.value = 'COMBO';
-};
-
-function atualizarPassos(passos) {
-  const lista = passos || (gravando && gravando.passos) || [];
-  if (!lista.length) { passosEl.textContent = 'nenhum passo ainda'; return; }
-  passosEl.textContent = lista.map(function (p, i) { return (i + 1) + '. ' + p.b.toUpperCase() + ' ' + p.ms + 'ms'; }).join('  \u2192  ');
-}
-
-mSave.onclick = () => {
-  const passos = JSON.parse(mSave.dataset.passos || '[]');
-  if (!passos.length) return;
-  const id = 'm' + Date.now().toString(36);
-  dados.macros.push({
-    id: id,
-    label: (mName.value || 'MACRO').toUpperCase().slice(0, 14),
-    steps: passos,
-    x: 50, y: 50, s: 1, hid: false,
-  });
-  salvar();
-  fecharModal();
-  aplicar();
-  selecionar(id);
-  if (!editing) document.getElementById('bedit').click();
-};
 
 // ---------------------------------------------------------------- tela cheia
 /** Alterna entre o layout de menu (sem analogico) e o de jogo. */
@@ -631,13 +562,8 @@ document.getElementById('bperfis').onclick = () => {
   location.href = '/inicio' + location.search;
 };
 
-document.getElementById('bfull').onclick = () => {
-  const d = document.documentElement;
-  if (!document.fullscreenElement) { (d.requestFullscreen || d.webkitRequestFullscreen || function(){}).call(d); }
-  else { (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document); }
-};
-
 sincronizarPerfil();
+sincronizarMacros();
 aplicarMarca();
 aplicar();
 atualizarBotaoModo();

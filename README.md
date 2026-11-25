@@ -64,8 +64,8 @@ no PixelPad errado quando tem mais de um na mesma rede Wi-Fi.
 A mesma página mostra **quem está conectado agora**: P1 em azul, P2 em vermelho,
 o IP do celular e há quanto tempo. Se o celular cair, some da lista na hora.
 
-Se só existir um PC na rede e ele for o mesmo da última vez, o app entra direto
-nele sem perguntar.
+O app **não conecta sozinho**: quem escolhe é você, no toque. Numa rede com
+mais de um PixelPad (ou num lugar público), entrar sozinho no PC errado seria pior.
 
 ## Estilo do controle (tela inicial)
 
@@ -82,6 +82,8 @@ O perfil usado por último aparece com a borda branca.
 
 Embaixo ficam dois atalhos: **meu layout atual** (entra sem aplicar preset, mantendo
 o que você arrumou) e **trocar de PC** (volta pra lista de computadores).
+
+No canto de cima fica o **⚡** — é por ele que se chega nas [macros](#macros-combos).
 
 ### De onde vieram as posições
 
@@ -108,49 +110,57 @@ descem — reproduzindo o mesmo ajuste que o PPSSPP faz ao ocultar o stick.
 > atrapalhavam mais do que ajudavam. O código deles continua em `src/presets.mjs`,
 > inativo, caso voltem um dia.
 
-## Modo menu e modo jogo
-
-O botão **JOGO/MENU** no topo alterna entre dois layouts completos:
-
-- **JOGO**: tudo, com os dois analógicos
-- **MENU**: os mesmos botões, **sem os analógicos** — pra navegar em menu de jogo,
-  launcher ou emulador sem ficar esbarrando no stick
-
-Cada modo é editável e guardado separado: arrume o de menu com o ✎, volte pro JOGO,
-arrume de novo — os dois ficam como você deixou. O modo escolhido também fica salvo,
-então o app reabre do jeito que você parou.
-
-> **"usar meu layout atual"** mantém exatamente o que você já arrumou, sem aplicar
-> nada — bom quando você só quer abrir e jogar.
-
 ## Editor de layout
 
 Toque em **✎ Editar** e os controles ficam translúcidos, pra você ver o jogo atrás
-deles enquanto arruma.
+deles enquanto arruma. A barra do editor fica no **canto superior esquerdo**, fora
+do caminho do polegar:
 
 - **arraste** qualquer botão pra mover
 - **−** e **+** mudam o tamanho do botão selecionado
-- **👁** oculta o botão (ótil pra tirar o que você nunca usa do caminho)
-- **Resetar** volta tudo pro lugar de fábrica
-- **OK** sai do editor
+- **👁** oculta o botão (útil pra tirar o que você nunca usa do caminho)
+- **↻** volta tudo pro lugar de fábrica
+- **✓** sai do editor
 
 Cada botão é independente: pode afastar o △ do ○, subir o analógico, encolher o
 L2. Tudo fica salvo no celular e volta igual na próxima vez.
 
 ## Macros (combos)
 
-No editor, toque em **+ Macro**:
+A macro não se configura mais no meio do jogo: na **tela inicial**, toque no
+**⚡** no canto de cima. Abre a tela de macros, com a explicação e a lista:
 
-1. **● Gravar** — o controle fica disponível pra você apertar os botões na ordem
-2. aperte o combo (ex.: △, △, ✕) e toque em **■ Parar**
-3. dê um nome, **Salvar**
+```
+M1                                  ✎  🗑
+✕+L1 100ms
+```
 
-Nasce um botão novo (roxo) no centro da tela, que você arrasta e dimensiona como
-qualquer outro. Apertar ele dispara o combo inteiro.
+**+ Nova macro** abre o editor:
 
-O tempo que você segura cada botão na gravação vira o tempo do passo. A sequência
-é executada **no PC**, não no celular — então o intervalo entre os comandos é
-preciso, independente do desempenho do telefone.
+- **Nome** — o que vai escrito no botão
+- **Repetir enquanto segura** — turbo: repete a sequência enquanto o botão estiver
+  apertado
+- **Passo 1, 2, 3…** — em cada passo você toca nos botões que devem ser segurados
+  juntos (aceita vários) e arrasta a barra pra definir o tempo em ms
+- passo sem nenhum botão = pausa, pra dar respiro entre as partes do combo
+- **+ Adicionar passo** quantas vezes quiser, **Salvar**
+
+Cada macro salva vira **um botão extra no controle, em todos os estilos**. Ele
+aparece no meio-esquerda da tela e você arrasta/dimensiona como qualquer outro
+botão. Apertar dispara a sequência.
+
+A sequência é executada **no PC**, não no celular — o intervalo entre os comandos
+é preciso mesmo com o Wi-Fi ocupado. Medido aqui: 120ms de passo repetindo a
+~150ms com o turbo ligado.
+
+## Modo menu x modo jogo
+
+O controle **sempre abre no modo MENU**, com os analógicos escondidos — que é o
+que você precisa pra navegar em menu de jogo ou launcher. O botão **JOGO/MENU** no
+topo troca pro controle completo.
+
+Cada modo é editável e guardado separado: arrume o de menu com o ✎, vá pro JOGO,
+arrume de novo — os dois ficam como você deixou.
 
 ## Dois jogadores (P1 e P2)
 
@@ -238,7 +248,11 @@ máquina**, e são refeitos sozinhos quando o IP do PC muda. A chave privada fic
 ## Estrutura
 
 ```
-src/server.mjs   servidor HTTP/HTTPS + WebSocket + descoberta UDP + páginas
+src/server.mjs   servidor HTTP/HTTPS + WebSocket + descoberta UDP + macros
+src/start-page.mjs  tela inicial em retrato (3 estilos)
+src/macros-page.mjs tela de macros (lista + editor de passos)
+src/game-page.mjs   o controle em si
+src/presets.mjs     marcas (símbolos) e estilos (posições)
 src/vigem.mjs    controle virtual via ViGEmClient.dll (koffi, sem Python/.NET)
 src/certs.mjs    CA local + certificado do servidor assinado por ela (node-forge)
 app-android/     app Android (Java puro, WebView + descoberta UDP)
@@ -254,9 +268,11 @@ data/            token de pareamento - NUNCA versionar
 - [x] descoberta automática do PC na rede (UDP broadcast)
 - [x] instalador Windows com Node embutido
 - [x] app Android nativo (mata a etapa do certificado)
-- [ ] perfis de layout prontos (FPS, plataforma, emulador)
+- [x] macros configuráveis fora do jogo, com turbo
+- [x] escolher em qual PC conectar (mais de um na mesma rede)
 - [ ] vibração/háptica no celular ao apertar botão
-- [ ] suporte a mais de um celular ao mesmo tempo (multiplayer local)
+- [x] dois celulares ao mesmo tempo (P1 e P2)
+- [ ] vibração do controle virtual (o celular vibrar)
 
 ## Licença
 
