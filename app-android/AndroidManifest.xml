@@ -3,6 +3,8 @@
     package="com.pixelpad">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- atualizacao dentro do app: baixa o APK do PC e chama o instalador -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 

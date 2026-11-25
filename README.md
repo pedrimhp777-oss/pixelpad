@@ -212,27 +212,39 @@ Também está nos Releases como `PixelPad-x.y.z.apk` (20 KB). Requer Android 5.0
 > chave de loja. Por isso o Android mostra o aviso de fonte desconhecida — normal
 > para app fora da Play Store. Instalar versão nova é só instalar por cima.
 
-## Atualizar (e por que o app do celular não se atualiza sozinho)
+## Atualizar o app (dentro do próprio app)
 
-O PixelPad tem duas partes e elas se atualizam de jeitos diferentes:
+O PixelPad tem duas partes:
 
-- **as telas** (controle, editor, macros, tela inicial) vêm do PC a cada abertura.
-  Atualizou o PixelPad no computador, o celular já abre na versão nova. Nada a fazer.
-- **o app do celular** (o APK) é instalado à mão, então **não se atualiza sozinho** —
-  não tem Play Store no meio. Quando sai uma versão nova, instale o APK de novo
-  por cima (não precisa desinstalar; o layout e as macros continuam lá).
+- **as telas** (controle, editor, macros, tela inicial) vêm do PC a cada abertura,
+  então atualizar o PixelPad no computador já muda o celular. Nada a fazer.
+- **o app do celular** (o APK) é instalado à mão — não tem Play Store no meio.
 
-Pra ninguém ficar perdido, a tela inicial mostra no rodapé a versão do app e a do PC
-(`app v0.11.0 · PC v0.11.0`). Se o app do celular estiver mais velho que o PC, o
-rodapé vira um aviso laranja **"App desatualizado"** que, tocado, abre o navegador
-no endereço do APK novo.
+Pra isso não virar caça ao arquivo, o app **se atualiza sozinho**:
+
+1. Abriu o PixelPad com o PC numa versão mais nova na rede? Aparece um cartão azul
+   no topo: **"⚡ Atualização do app — v0.13.0 → v0.14.0"** (também aparece um
+   aviso laranja no rodapé da tela inicial, caso você já esteja dentro).
+2. Toque nele. O app baixa o APK do próprio PC (mostra a porcentagem) e abre a
+   tela de instalação do Android.
+3. Toque em **Atualizar**. Pronto — layout e macros continuam intactos.
+
+Na primeira vez o Android pede duas coisas, uma única vez cada: liberar
+"instalar apps desconhecidos" para o PixelPad (o app leva você direto na tela
+certa) e confirmar o aviso do Google Play Protect — é o comportamento normal de
+qualquer app instalado fora da loja.
+
+> Sem internet na hora? O APK é servido pelo próprio PC na rede local: a
+> atualização funciona até offline (fora da Play Protect, que é opcional).
+
+Se preferir baixar na mão (outro celular, sem app instalado):
 
 ```bash
-# no celular, com o PixelPad aberto no PC
+# no navegador do celular, com o PixelPad aberto no PC
 http://<ip-do-pc>:8080/android
 ```
 
-## Requisitos
+## Requisitos## Requisitos
 
 - **Windows 10/11** (o controle virtual usa XInput)
 - **Node.js 20+**

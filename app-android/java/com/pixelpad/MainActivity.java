@@ -1,15 +1,21 @@
 package com.pixelpad;
 
 import android.app.Activity;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.Settings;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
@@ -75,6 +81,11 @@ public class MainActivity extends Activity {
     /** Mensagem que deve aparecer quando a busca terminar (ex.: PC fora do ar). */
     private String aviso = null;
 
+    // atualizacao do proprio APK: baixa do PC e abre o instalador do Android
+    private DownloadManager downloads;
+    private long baixando = -1;
+    private BroadcastReceiver fimDownload;
+
     @Override
     protected void onCreate(Bundle estado) {
         super.onCreate(estado);
@@ -108,6 +119,25 @@ public class MainActivity extends Activity {
         cfg.setUseWideViewPort(true);
 
         web.addJavascriptInterface(new Ponte(), "PixelPad");
+
+        // ---- atualizacao: baixa o APK servido pelo PC e chama o instalador
+        downloads = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        fimDownload = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context c, Intent i) {
+                if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(i.getAction())) return;
+                long id = i.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                if (id != baixando) return;
+                baixando = -1;
+                Uri apk = null;
+                try { apk = downloads.getUriForDownloadedFile(id); } catch (Exception e) {}
+                if (apk == null) { avisarJs("Nao consegui baixar. Tente de novo."); return; }
+                instalar(apk);
+            }
+        };
+        IntentFilter filtro = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(fimDownload, filtro, Context.RECEIVER_EXPORTED);
+        else registerReceiver(fimDownload, filtro);
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -229,6 +259,16 @@ public class MainActivity extends Activity {
 
     private void atualizarLista(List<PC> pcs) {
         lista.removeAllViews();
+
+        // se algum PC da rede tem versao mais nova que este APK, avisa antes de tudo
+        String meu = versaoDoApp();
+        for (PC p : pcs) {
+            if (!"?".equals(p.versao) && maisNovo(p.versao, meu)) {
+                lista.addView(cartaoAtualizacao(p, meu));
+                break;
+            }
+        }
+
         for (final PC p : pcs) {
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
@@ -266,6 +306,43 @@ public class MainActivity extends Activity {
             lpCard.bottomMargin = dp(10);
             lista.addView(card, lpCard);
         }
+    }
+
+    /** Cartao azul no topo da lista: "tem versao nova, toque pra baixar". */
+    private View cartaoAtualizacao(final PC p, String meu) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(13), dp(16), dp(13));
+        card.setBackground(fundo(0xFF152238, 0xFF2F6DF6, 16));
+        card.setClickable(true);
+        card.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                baixarAtualizacao(p.url.replaceAll("/inicio.*$", "/android"), p.versao);
+            }
+        });
+
+        TextView titulo = new TextView(this);
+        titulo.setText("⚡  Atualização do app");
+        titulo.setTextColor(0xFF9CC4FF);
+        titulo.setTextSize(15);
+        titulo.setTypeface(null, android.graphics.Typeface.BOLD);
+        card.addView(titulo);
+
+        TextView info = new TextView(this);
+        info.setText("v" + meu + " → v" + p.versao + "  ·  toque para baixar e instalar");
+        info.setTextColor(0xFF8FA6C4);
+        info.setTextSize(12);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(4);
+        card.addView(info, lp);
+
+        LinearLayout.LayoutParams lpCard = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lpCard.bottomMargin = dp(10);
+        card.setLayoutParams(lpCard);
+        return card;
     }
 
     private void conectar(String url) {
@@ -419,6 +496,121 @@ public class MainActivity extends Activity {
     }
 
     /** Ponte usada pela pagina: mudar orientacao e voltar pra lista de PCs. */
+    // ------------------------------------------------------------ atualizacao
+
+    /** Versao instalada deste APK, ex.: "0.12.0". */
+    private String versaoDoApp() {
+        try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+        catch (Exception e) { return "?"; }
+    }
+
+    /** Compara "0.12.0" com "0.12.10" sem cair na armadilha do texto. */
+    private static boolean maisNovo(String a, String b) {
+        String[] x = String.valueOf(a).split("\\.");
+        String[] y = String.valueOf(b).split("\\.");
+        int n = Math.max(x.length, y.length);
+        for (int i = 0; i < n; i++) {
+            int p = i < x.length ? numero(x[i]) : 0;
+            int q = i < y.length ? numero(y[i]) : 0;
+            if (p != q) return p > q;
+        }
+        return false;
+    }
+
+    private static int numero(String v) {
+        try { return Integer.parseInt(v.replaceAll("[^0-9].*$", "")); } catch (Exception e) { return 0; }
+    }
+
+    /** Baixa o APK do PC e, no fim, abre o instalador do Android. */
+    private void baixarAtualizacao(String url, String versaoNova) {
+        if (downloads == null) { avisarJs("Sem gerenciador de download neste aparelho"); return; }
+        if (baixando != -1) { avisarJs("Ja estou baixando a atualizacao..."); return; }
+        try {
+            DownloadManager.Request pedido = new DownloadManager.Request(Uri.parse(url));
+            pedido.setTitle("PixelPad " + versaoNova);
+            pedido.setDescription("Baixando a versao nova");
+            pedido.setMimeType("application/vnd.android.package-archive");
+            pedido.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
+            // nome novo a cada download: o DownloadManager falha se o arquivo ja existe
+            java.io.File pasta = getExternalFilesDir(null);
+            if (pasta != null && pasta.isDirectory()) {
+                java.io.File[] velhos = pasta.listFiles();
+                if (velhos != null) for (java.io.File f : velhos) {
+                    if (f.getName().startsWith("PixelPad-atualizacao")) f.delete();
+                }
+            }
+            pedido.setDestinationInExternalFilesDir(this, null,
+                    "PixelPad-atualizacao-" + System.currentTimeMillis() + ".apk");
+            baixando = downloads.enqueue(pedido);
+            avisarJs("Baixando a atualizacao...");
+            status.setTextColor(COR_FRACA);
+            status.setText("Baixando a atualizacao do app...");
+            acompanhar();
+        } catch (Exception e) {
+            baixando = -1;
+            avisarJs("Nao consegui baixar: " + e.getMessage());
+        }
+    }
+
+    /** Mostra o progresso na tela enquanto o download roda. */
+    private void acompanhar() {
+        final long id = baixando;
+        ui.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (baixando != id) return;
+                Cursor c = null;
+                try {
+                    c = downloads.query(new DownloadManager.Query().setFilterById(id));
+                    if (c != null && c.moveToFirst()) {
+                        int total = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                        int feito = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                        int pct = total > 0 ? (int) (feito * 100L / total) : -1;
+                        String txt = pct >= 0 ? "Baixando... " + pct + "%" : "Baixando...";
+                        status.setText(txt);
+                        avisarJs(txt);
+                    }
+                } catch (Exception e) {
+                } finally {
+                    if (c != null) c.close();
+                }
+                ui.postDelayed(this, 400);
+            }
+        }, 400);
+    }
+
+    /** Abre a tela de instalacao do Android com o APK baixado. */
+    private void instalar(Uri apk) {
+        if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+            // uma vez so: liberar "instalar apps desconhecidos" pro PixelPad
+            avisarJs("Libere a instalacao para o PixelPad e toque em baixar de novo");
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getPackageName())));
+            } catch (Exception e) {
+                avisarJs("Abra as permissoes do app e libere a instalacao");
+            }
+            return;
+        }
+        status.setText("Confirme a instalacao na tela do Android");
+        Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setDataAndType(apk, "application/vnd.android.package-archive");
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { startActivity(i); }
+        catch (Exception e) { avisarJs("Nao consegui abrir o instalador: " + e.getMessage()); }
+    }
+
+    /** Fala com a pagina (ela mostra o aviso no rodape). */
+    private void avisarJs(final String txt) {
+        if (web == null) return;
+        final String js = "window.ppAviso && window.ppAviso(" + JSONObject.quote(txt) + ")";
+        ui.post(new Runnable() {
+            @Override
+            public void run() { try { web.evaluateJavascript(js, null); } catch (Exception e) {} }
+        });
+    }
+
     private class Ponte {
         /** Versao instalada deste app (lida do proprio APK), ex.: "0.11.0". */
         @JavascriptInterface
@@ -429,6 +621,20 @@ public class MainActivity extends Activity {
                 return "?";
             }
         }
+
+        /** Baixa o APK novo do PC e abre o instalador (1 toque, sem navegador). */
+        @JavascriptInterface
+        public void atualizar(final String url) {
+            if (url == null || !url.startsWith("http")) return;
+            ui.post(new Runnable() {
+                @Override
+                public void run() { baixarAtualizacao(url, "nova"); }
+            });
+        }
+
+        /** Versao do PC, pra tela comparar sem precisar pedir de novo. */
+        @JavascriptInterface
+        public String versaoApp() { return versaoDoApp(); }
 
         /** Abre um link no navegador do celular (usado pra baixar o APK novo). */
         @JavascriptInterface
@@ -526,6 +732,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        try { if (fimDownload != null) unregisterReceiver(fimDownload); } catch (Exception e) {}
         if (web != null) {
             web.loadUrl("about:blank");
             web.destroy();

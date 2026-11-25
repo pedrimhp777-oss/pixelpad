@@ -190,6 +190,8 @@ desenhar();
 // A pagina vem sempre do PC (entao o visual se atualiza sozinho), mas o APK
 // e instalado a mao e NAO se atualiza sozinho. Aqui a gente compara os dois e
 // avisa quando o app do celular ficou pra tras.
+window.ppAviso = null;   // o app troca isto quando ha atualizacao pra baixar
+
 function numeros(v) {
   return String(v || '').split('.').map(function (n) { return parseInt(n, 10) || 0; });
 }
@@ -215,9 +217,22 @@ function maisNovo(a, b) {            // true se a > b
   if (maisNovo(VERSAO_PC, app)) {
     el.className = 'velho';
     el.innerHTML = '&#9888; App desatualizado (v' + app + ') &middot; o PC est&aacute; na v' +
-      VERSAO_PC + '<br><b>toque aqui pra atualizar</b>';
+      VERSAO_PC + '<br><b>toque aqui pra baixar e instalar</b>';
     el.onclick = function () {
+      // no app: baixa o APK do PC e abre o instalador do Android (1 toque)
+      if (window.PixelPad && PixelPad.atualizar) {
+        el.onclick = null;
+        el.innerHTML = '&#11015; Baixando a atualiza&ccedil;&atilde;o...';
+        PixelPad.atualizar(location.origin + '/android');
+        return;
+      }
       if (window.PixelPad && PixelPad.abrir) PixelPad.abrir(location.origin + '/android');
+      else location.href = '/android';
+    };
+    // o app avisa o progresso do download por aqui
+    window.ppAviso = function (txt) {
+      el.className = 'velho';
+      el.textContent = txt;
     };
   } else {
     el.textContent = 'app v' + app + '  ·  PC v' + VERSAO_PC;
