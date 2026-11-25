@@ -196,6 +196,12 @@ Source: "${APP.replace(/\\/g, '\\\\')}\\*"; DestDir: "{app}"; Flags: recursesubd
 Name: "autostart"; Description: "Abrir junto com o Windows"; GroupDescription: "Opções:"; Flags: unchecked
 Name: "desktopicon"; Description: "Criar atalho na Área de Trabalho"; GroupDescription: "Opções:"; Flags: unchecked
 
+// Versoes antigas criavam um atalho de autorun no registro (apontando para um
+// PixelPad.vbs que nem existe mais). Isso aqui apaga essa chave em quem atualiza,
+// sem criar nenhuma nova.
+[Registry]
+Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "PixelPad"; Flags: deletevalue
+
 [Icons]
 Name: "{group}\\{#AppName}"; Filename: "{app}\\node.exe"; Parameters: """{app}\\src\\server.mjs"""; WorkingDir: "{app}"; IconFilename: "{app}\\icon.ico"; Comment: "Controle do PC pelo celular"
 Name: "{group}\\Desinstalar {#AppName}"; Filename: "{uninstallexe}"
