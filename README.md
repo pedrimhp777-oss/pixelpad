@@ -136,6 +136,10 @@ O layout só é refeito do zero quando você **escolhe outro estilo** na tela in
 (PlayStation → Xbox, por exemplo). Entrar de novo pelo mesmo card não mexe em nada:
 seu ajuste continua lá.
 
+**L3 e R3** (o clique dos analógicos) ficam no canto de cima, ao lado de L1/R1, nos
+três estilos e nos dois modos — é o lugar que ficou confortável no aparelho e virou
+padrão para todo mundo.
+
 As setas do direcional são **um bloco**: ao selecionar uma, as quatro ficam
 selecionadas. O **−** e **+** mudam o tamanho *e* a distância entre elas na mesma
 proporção, então o cruzamento cresce sem as setas se encostarem — e se o bloco

@@ -348,8 +348,43 @@ const V1 = {
   cbtn:['share','options'], ls:['ls'], rs:['rs'], tp:['tp'], ps:['ps'],
 };
 
+/**
+ * L3/R3 nasceram (0.15) embaixo, do lado dos analogicos. Depois eles passaram
+ * pro canto de cima, ao lado de L1/R1 - e esse e o padrao de todo mundo agora,
+ * nos tres estilos e nos dois modos. Aqui a gente move SO quem ainda esta na
+ * posicao antiga de fabrica: L3/R3 que o usuario arrastou nao sao tocados.
+ */
+const L3R3_VELHOS = {
+  l3: [[27, 83], [27, 83.4], [24, 90], [24.8, 83.4]],
+  r3: [[73, 83], [73, 83.4], [79, 32]],
+};
+function l3r3Antigo(L, lista) {
+  if (!L || typeof L.x !== 'number' || typeof L.y !== 'number') return false;
+  for (const v of lista) if (Math.abs(L.x - v[0]) < 1.5 && Math.abs(L.y - v[1]) < 1.5) return true;
+  return false;
+}
+/** Põe L3/R3 no lugar novo. Devolve true se mexeu em algo. */
+function consertaL3R3(d) {
+  if (!d || !d.nodes) return false;
+  const fab = nosDoModo(d.modo === 'jogo' ? 'jogo' : 'menu');
+  let mudou = false;
+  for (const id of ['l3', 'r3']) {
+    const alvo = fab[id];
+    if (!alvo) continue;
+    const L = d.nodes[id];
+    if (!L) {
+      d.nodes[id] = { x: alvo.x, y: alvo.y, s: alvo.s, hid: false };
+      mudou = true;
+    } else if (l3r3Antigo(L, L3R3_VELHOS[id])) {
+      L.x = alvo.x; L.y = alvo.y; L.s = alvo.s;
+      mudou = true;
+    }
+  }
+  return mudou;
+}
+
 let dados = carregar();
-const MIGRA_KEY = 'pixelpadLayoutV9';
+const MIGRA_KEY = 'pixelpadLayoutV10';
 
 function migrarLayout() {
   // 0.10.0 deixou os botoes maiores: o layout salvo da versao anterior ficaria
@@ -407,6 +442,9 @@ function carregar() {
     salvo.marca = marca;
     delete salvo.macros;
     for (const id of ['ls', 'rs']) if (salvo.nodes[id]) salvo.nodes[id].hid = true;
+    if (consertaL3R3(salvo)) {
+      try { localStorage.setItem(chaveLayout(marca, 'menu'), JSON.stringify(salvo)); } catch (e) {}
+    }
     return salvo;
   }
 
@@ -435,6 +473,7 @@ function carregar() {
         localStorage.setItem(chaveLayout(marca, 'jogo'), JSON.stringify(j));
       }
     } catch (e) {}
+    consertaL3R3(d);
     return d;
   }
 
@@ -1193,6 +1232,7 @@ function alternarModo() {
   dados.estilo = estilo;
   dados.perfil = perfil;
   for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = (novo === 'menu');
+  consertaL3R3(dados);
   salvar();
   aplicarMarca();
   aplicar();
