@@ -66,7 +66,7 @@ function pegarSlot(ws) {
     if (vi) {
       try { pad = vi.addPad(); } catch (e) { logLine(`P${i + 1} falhou: ` + e.message); }
     }
-    slots[i] = { n: i + 1, pad, ws, ultimo: null, macro: {}, timers: [] };
+    slots[i] = { n: i + 1, pad, ws, ultimo: null, macro: {}, timers: [], ip: '', desde: Date.now() };
     logLine(`controle P${i + 1} conectado`);
     return slots[i];
   }
@@ -137,6 +137,22 @@ if (!TOKEN || TOKEN.length < 16) {
   try { fs.writeFileSync(TOKFILE, TOKEN); } catch {}
 }
 
+// ---------------- nome deste PC ----------------
+// E o nome que aparece na lista de dispositivos do celular. Sem isso, duas
+// maquinas na mesma casa ficariam indistinguiveis (as duas responderiam com o
+// hostname do Windows, tipo DESKTOP-XXXX).
+const CFGFILE = path.join(DATA, 'config.json');
+let CONFIG = {};
+try { CONFIG = JSON.parse(fs.readFileSync(CFGFILE, 'utf8')) || {}; } catch {}
+let NOME = String(CONFIG.nome || '').trim() || os.hostname();
+function salvarNome(v) {
+  NOME = String(v || '').replace(/\s+/g, ' ').trim().slice(0, 32) || os.hostname();
+  CONFIG.nome = NOME;
+  try { fs.writeFileSync(CFGFILE, JSON.stringify(CONFIG, null, 2)); } catch (e) { logLine('nao salvei o nome: ' + e.message); }
+  logLine('nome deste PC: ' + NOME);
+  return NOME;
+}
+
 process.on('uncaughtException', e => { logLine('CRASH uncaught: ' + (e && e.stack || e)); });
 process.on('unhandledRejection', e => { logLine('CRASH rejection: ' + (e && e.stack || e)); });
 
@@ -151,11 +167,13 @@ try {
     if (!txt.startsWith('PIXELPAD?')) return;
     const resposta = 'PIXELPAD!' + JSON.stringify({
       versao: VERSAO,
-      nome: os.hostname(),
+      nome: NOME,
       ip: lanIP(),
       porta: PORT,
       portaHttps: serverS ? PORT_S : 0,
       token: TOKEN,
+      pads: slotsOcupados(),
+      max: MAX_PADS,
     });
     try { disco.send(resposta, rinfo.port, rinfo.address); } catch {}
   });
@@ -281,7 +299,7 @@ const SVG = {
 };
 
 const GAME_PAGE = gamePage({ CSS, SVG });
-const START_PAGE = startPage({ SVG });
+const START_PAGE = () => startPage({ SVG, nome: NOME });
 
 const MANIFEST = JSON.stringify({
   name: 'Gamepad do PC',
@@ -340,7 +358,41 @@ function handle(req, res) {
   }
   if (u === '/inicio' || u === '/start' || u === '/perfis') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-    return res.end(START_PAGE);
+    return res.end(START_PAGE());
+  }
+  if (u === '/status') {
+    const ip = req.socket.remoteAddress || '';
+    const local = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+    if (!local) { res.writeHead(403, { 'Content-Type': 'text/plain' }); return res.end('so local'); }
+    const jogadores = slots.filter(Boolean).map(s => ({
+      p: s.n, ip: s.ip, desde: s.desde, criado: !!s.pad,
+    }));
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({
+      nome: NOME, versao: VERSAO, ip: lanIP(), porta: PORT, portaHttps: serverS ? PORT_S : 0,
+      jogadores, max: MAX_PADS, driver: !padErro,
+    }));
+  }
+  if (u === '/nome') {
+    const ip = req.socket.remoteAddress || '';
+    const local = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+    if (!local) { res.writeHead(403, { 'Content-Type': 'text/plain' }); return res.end('so local'); }
+    if (req.method === 'POST') {
+      let corpo = '';
+      req.on('data', c => { corpo += c; if (corpo.length > 4096) req.destroy(); });
+      req.on('end', () => {
+        let v = '';
+        try { v = new URLSearchParams(corpo).get('nome') || ''; } catch {}
+        salvarNome(v);
+        res.writeHead(303, { Location: '/pair?salvo=1' });
+        res.end();
+      });
+      return;
+    }
+    const v = new URL(req.url, 'http://local').searchParams.get('nome');
+    if (v !== null) salvarNome(v);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ nome: NOME }));
   }
   if (u === '/pair') {
     const ip = req.socket.remoteAddress || '';
@@ -352,13 +404,45 @@ function handle(req, res) {
     let qr = '';
     qrcode.generate(alvo, { small: true }, q => { qr = q; });
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-    return res.end(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>PixelPad - parear</title>
+    return res.end(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PixelPad - parear</title>
 <style>body{background:#0d0f12;color:#e6e8ec;font-family:system-ui,sans-serif;display:flex;flex-direction:column;
-align-items:center;gap:16px;padding:28px 20px}h1{font-size:19px;font-weight:600;margin:0;text-align:center}
+align-items:center;gap:16px;padding:24px 20px 40px}h1{font-size:19px;font-weight:600;margin:0;text-align:center}
 pre{font-size:13px;line-height:1.05;background:#111721;padding:18px;border-radius:12px;color:#cdd6e2;margin:0}
 b{color:#7db6ff}code{background:#111721;padding:4px 9px;border-radius:6px;font-size:12px;word-break:break-all}
-.card{border-top:1px solid #1e2836;padding-top:18px;max-width:420px;text-align:center;color:#8a94a3;font-size:13px;line-height:1.6}
-a{color:#7db6ff}</style></head><body>
+.card{border-top:1px solid #1e2836;padding-top:18px;max-width:460px;text-align:center;color:#8a94a3;font-size:13px;line-height:1.6}
+a{color:#7db6ff}
+.box{max-width:460px;width:100%;background:#111721;border:1px solid #1e2836;border-radius:14px;padding:16px 18px}
+.box h2{font-size:12px;letter-spacing:1.4px;color:#6b7787;margin:0 0 10px;text-transform:uppercase}
+form{display:flex;gap:8px;margin:0}
+input{flex:1;background:#0d0f12;border:1px solid #253044;color:#e6e8ec;border-radius:9px;padding:10px 12px;font:inherit;font-size:14px;min-width:0}
+input:focus{outline:0;border-color:#2f6df6}
+button{background:#2f6df6;color:#fff;border:0;border-radius:9px;padding:10px 16px;font:inherit;font-size:13px;font-weight:700}
+.vazio{color:#4b5766;font-size:12.5px}
+.jog{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #182130;font-size:13px}
+.jog:last-child{border:0}
+.pt{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:900;font-size:11px;color:#fff;background:#2b6df6;flex:none}
+.pt.p2{background:#e0453f}
+.jog small{color:#6b7787;font-size:11.5px}
+.ok{color:#5fd18b}</style></head><body>
+<h1>PixelPad &middot; ${NOME.replace(/[<&]/g, c => (c === '<' ? '&lt;' : '&amp;'))}</h1>
+${req.url.includes('salvo=1') ? '<p style="margin:0;color:#5fd18b;font-size:13px">Nome salvo.</p>' : ''}
+
+<div class="box">
+  <h2>Nome deste PC</h2>
+  <form method="POST" action="/nome">
+    <input name="nome" value="${NOME.replace(/["<&]/g, c => (c === '"' ? '&quot;' : c === '<' ? '&lt;' : '&amp;'))}" maxlength="32" placeholder="Ex.: PC da sala">
+    <button type="submit">Salvar</button>
+  </form>
+  <p style="margin:10px 0 0;color:#4b5766;font-size:11.5px;line-height:1.5">
+    Esse nome aparece no celular na hora de escolher em qual PC conectar.
+    Com dois PCs na mesma casa, cada um pode ter o seu.</p>
+</div>
+
+<div class="box">
+  <h2>Conectados agora</h2>
+  <div id="jogs"><p class="vazio">Procurando...</p></div>
+</div>
+
 <h1>Aponte a camera do celular para o codigo</h1>
 ${padErro ? `<div style="max-width:460px;text-align:center;background:#3a1d1d;border:1px solid #7d2b2b;color:#ffb4b4;padding:14px 16px;border-radius:10px;font-size:13px;line-height:1.6">
   <b>O gamepad nao vai funcionar ainda.</b><br>
@@ -371,7 +455,7 @@ ${padErro ? `<div style="max-width:460px;text-align:center;background:#3a1d1d;bo
 <div class="card">
   <b>App Android</b> (recomendado, tira o navegador da jogada)<br>
   abra <a href="/android">http://${lan}:${PORT}/android</a> no celular e instale o APK<br>
-  <span style="color:#4b5766;font-size:11px">ele acha este PC sozinho na rede, sem QR</span>
+  <span style="color:#4b5766;font-size:11px">ele mostra a lista de PCs da rede e voce escolhe em qual conectar</span>
 </div>
 <div class="card">
   <b>Quer instalar como app na tela inicial?</b><br>
@@ -380,6 +464,28 @@ ${padErro ? `<div style="max-width:460px;text-align:center;background:#3a1d1d;bo
   <span style="color:#4b5766;font-size:11px">endereco HTTPS: ${alvoS}</span>
 </div>
 <p style="color:#4b5766;font-size:11px;margin:0">token ${TOKEN.slice(0, 8)}... &middot; data/token.txt</p>
+<script>
+function desenhar(j) {
+  const alvo = document.getElementById('jogs');
+  if (!j.jogadores || !j.jogadores.length) {
+    alvo.innerHTML = '<p class="vazio">Nenhum celular conectado.</p>';
+    return;
+  }
+  alvo.innerHTML = j.jogadores.map(function (p) {
+    const min = Math.max(0, Math.round((Date.now() - p.desde) / 60000));
+    return '<div class="jog"><span class="pt' + (p.p === 2 ? ' p2' : '') + '">P' + p.p + '</span>' +
+      '<div><div>' + (p.ip || 'conectado') + '</div>' +
+      '<small>' + (min ? 'ha ' + min + ' min' : 'agora') +
+      (p.criado ? '' : ' &middot; sem driver') + '</small></div></div>';
+  }).join('');
+}
+function atualizar() {
+  fetch('/status', { cache: 'no-store' }).then(function (r) { return r.json(); })
+    .then(desenhar).catch(function () {});
+}
+atualizar();
+setInterval(atualizar, 3000);
+</script>
 </body></html>`);
   }
   if (u === '/manifest.webmanifest') {
@@ -470,6 +576,8 @@ function onSocket(ws, req) {
       return;
     }
     try { ws.send(JSON.stringify({ t: 'player', n: slot.n, max: MAX_PADS })); } catch {}
+    slot.ip = ip.replace('::ffff:', '');
+    slot.desde = Date.now();
   }
 
   ws.on('close', () => {

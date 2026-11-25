@@ -2,22 +2,28 @@ package com.pixelpad;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import org.json.JSONObject;
@@ -25,25 +31,47 @@ import org.json.JSONObject;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Casca do PixelPad: acha o PC na rede local por UDP, abre o page do gamepad
- * em tela cheia e guarda o endereco para reconectar na proxima vez.
+ * Casca do PixelPad.
+ *
+ * Abre em pe, procura os PCs que estao rodando o PixelPad na rede local e
+ * deixa voce escolher em qual conectar (util com dois PCs na mesma casa).
+ * A escolha do estilo do controle vem depois, no /inicio, ainda em pe.
+ * Quando o gamepad abre, a tela deita sozinha.
  */
 public class MainActivity extends Activity {
 
     private static final int DISCOVERY_PORT = 9999;
     private static final int COR_FUNDO = 0xFF0D0F12;
+    private static final int COR_CARTAO = 0xFF141A24;
+    private static final int COR_BORDA = 0xFF1E2836;
     private static final int COR_TEXTO = 0xFFE6E8EC;
-    private static final int COR_AZUL = 0xFF7DB6FF;
+    private static final int COR_FRACA = 0xFF8A94A3;
+    private static final int COR_AZUL = 0xFF2F6DF6;
+
+    /** Um PC que respondeu ao broadcast. */
+    private static class PC {
+        String nome, ip, url, versao;
+        int pads, max;
+    }
 
     private WebView web;
     private SharedPreferences prefs;
-    private LinearLayout overlay;
-    private TextView overlayTitulo;
-    private TextView overlayDetalhe;
+    private FrameLayout raiz;
+    private LinearLayout painel;
+    private LinearLayout lista;
+    private TextView status;
     private final Handler ui = new Handler(Looper.getMainLooper());
+    private final Map<String, PC> achados = new LinkedHashMap<>();
     private volatile boolean procurando = false;
+    private boolean jaEscolheu = false;
+    /** Mensagem que deve aparecer quando a busca terminar (ex.: PC fora do ar). */
+    private String aviso = null;
 
     @Override
     protected void onCreate(Bundle estado) {
@@ -59,6 +87,7 @@ public class MainActivity extends Activity {
         getWindow().setAttributes(attrs);
 
         prefs = getSharedPreferences("pixelpad", MODE_PRIVATE);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         web = new WebView(this);
         web.setBackgroundColor(COR_FUNDO);
@@ -73,89 +102,124 @@ public class MainActivity extends Activity {
         cfg.setLoadWithOverviewMode(true);
         cfg.setUseWideViewPort(true);
 
+        web.addJavascriptInterface(new Ponte(), "PixelPad");
+
         web.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView v, String url) {
-                esconderOverlay();
+                // o gamepad e a unica tela que fica deitada
+                if (url == null) return;
+                if (url.contains("/game")) paisagem();
+                else if (url.contains("/inicio")) retrato();
             }
 
             @Override
             public void onReceivedError(WebView v, int codigo, String descricao, String url) {
-                if (url != null && url.startsWith("http")) mostrarErro("Nao consegui falar com o PC", descricao);
+                if (url == null || !url.startsWith("http")) return;
+                // caiu a conexao com o PC: volta pra lista
+                ui.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mostrarEscolha("Nao consegui falar com esse PC. Ele esta ligado?");
+                    }
+                });
             }
         });
         web.setWebChromeClient(new WebChromeClient());
 
-        setContentView(web);
-        montarOverlay();
+        raiz = new FrameLayout(this);
+        raiz.setBackgroundColor(COR_FUNDO);
+        raiz.addView(web, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        montarPainel();
+        setContentView(raiz);
         telaCheia();   // precisa da view ja montada na janela
 
-        String salvo = prefs.getString("url", null);
-        if (salvo != null) {
-            mostrarOverlay("Conectando...", salvo);
-            web.loadUrl(salvo);
-        }
         procurar(true);
     }
 
     // ------------------------------------------------------------ descoberta
 
-    /** Procura o PC na rede: broadcast UDP e espera a resposta com IP e token. */
-    private void procurar(final boolean tentarDeNovo) {
+    /** Procura os PCs na rede: broadcast UDP e junta todas as respostas. */
+    private void procurar(final boolean primeira) {
         if (procurando) return;
         procurando = true;
-        if (web.getUrl() == null) mostrarOverlay("Procurando o PC...", "ligue o PixelPad no computador");
+        if (primeira) status.setText("Procurando PCs na rede...");
+        else status.setText("Procurando de novo...");
 
         new Thread(new Runnable() {
             @Override
             public void run() {
-                String achado = null;
+                synchronized (achados) { achados.clear(); }
                 DatagramSocket socket = null;
                 try {
                     socket = new DatagramSocket();
                     socket.setBroadcast(true);
-                    socket.setSoTimeout(700);
+                    socket.setSoTimeout(400);
                     byte[] pedido = "PIXELPAD?".getBytes("UTF-8");
                     InetAddress broadcast = InetAddress.getByName("255.255.255.255");
 
-                    long limite = System.currentTimeMillis() + 3500;
-                    int tentativas = 0;
-                    while (achado == null && System.currentTimeMillis() < limite) {
-                        // manda de novo: a primeira resposta pode se perder
-                        if (tentativas % 3 == 0) {
-                            socket.send(new DatagramPacket(pedido, pedido.length, broadcast, DISCOVERY_PORT));
+                    // 2,5s ouvindo: da tempo de varios PCs responderem
+                    long limite = System.currentTimeMillis() + 2500;
+                    long proximoEnvio = 0;
+                    while (System.currentTimeMillis() < limite) {
+                        if (System.currentTimeMillis() >= proximoEnvio) {
+                            try { socket.send(new DatagramPacket(pedido, pedido.length, broadcast, DISCOVERY_PORT)); } catch (Exception e) {}
+                            proximoEnvio = System.currentTimeMillis() + 500;
                         }
-                        tentativas++;
                         try {
-                            byte[] buf = new byte[1024];
+                            byte[] buf = new byte[2048];
                             DatagramPacket resp = new DatagramPacket(buf, buf.length);
                             socket.receive(resp);
                             String texto = new String(buf, 0, resp.getLength(), "UTF-8");
                             if (!texto.startsWith("PIXELPAD!")) continue;
                             JSONObject json = new JSONObject(texto.substring(9));
-                            achado = "http://" + json.getString("ip")
-                                    + ":" + json.getInt("porta")
+                            PC p = new PC();
+                            p.nome = json.optString("nome", "PC sem nome");
+                            p.ip = json.getString("ip");
+                            p.versao = json.optString("versao", "?");
+                            p.pads = json.optInt("pads", 0);
+                            p.max = json.optInt("max", 2);
+                            p.url = "http://" + p.ip + ":" + json.getInt("porta")
                                     + "/inicio?t=" + json.getString("token");
+                            synchronized (achados) { achados.put(p.ip, p); }
                         } catch (Exception ignorada) {
-                            // timeout: tenta de novo ate o limite
+                            // timeout de 400ms: segue mandando pedido ate o limite
                         }
                     }
                 } catch (Exception e) {
-                    achado = null;
+                    // rede bloqueada, sem socket...
                 } finally {
                     if (socket != null) socket.close();
                 }
 
-                final String url = achado;
                 ui.post(new Runnable() {
                     @Override
                     public void run() {
                         procurando = false;
-                        if (url != null) conectar(url);
-                        else if (web.getUrl() == null) {
-                            mostrarErro("Nao achei o PC na rede",
-                                    "O celular e o computador precisam estar no mesmo Wi-Fi.\n"
-                                            + "Se o PixelPad nao estiver aberto no PC, abra o atalho dele.");
+                        List<PC> encontrados;
+                        synchronized (achados) { encontrados = new ArrayList<>(achados.values()); }
+
+                        // um unico PC e o mesmo da ultima vez: entra direto
+                        String ultimo = prefs.getString("url", null);
+                        if (!jaEscolheu && encontrados.size() == 1 && ultimo != null
+                                && ultimo.equals(encontrados.get(0).url)) {
+                            conectar(encontrados.get(0).url);
+                            return;
+                        }
+                        atualizarLista(encontrados);
+                        if (aviso != null) {
+                            status.setTextColor(0xFFFFB4B4);
+                            status.setText(aviso);
+                            aviso = null;
+                        } else if (encontrados.isEmpty()) {
+                            status.setTextColor(COR_FRACA);
+                            status.setText("Nenhum PC encontrado.\nO PixelPad precisa estar aberto no computador,\n"
+                                    + "e o celular no mesmo Wi-Fi.");
+                        } else {
+                            status.setTextColor(COR_FRACA);
+                            status.setText(encontrados.size() == 1
+                                    ? "1 PC encontrado" : encontrados.size() + " PCs encontrados");
                         }
                     }
                 });
@@ -163,15 +227,80 @@ public class MainActivity extends Activity {
         }, "descoberta").start();
     }
 
+    private void atualizarLista(List<PC> pcs) {
+        lista.removeAllViews();
+        for (final PC p : pcs) {
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setPadding(dp(16), dp(14), dp(16), dp(14));
+            card.setBackground(fundo(COR_CARTAO, COR_BORDA, 16));
+            card.setClickable(true);
+            card.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) { conectar(p.url); }
+            });
+
+            TextView nome = new TextView(this);
+            nome.setText(p.nome);
+            nome.setTextColor(COR_TEXTO);
+            nome.setTextSize(17);
+            nome.setTypeface(null, android.graphics.Typeface.BOLD);
+            card.addView(nome);
+
+            String detalhe = p.ip;
+            if (p.pads > 0) detalhe += "  ·  " + p.pads + " de " + p.max + " controles conectados";
+            else detalhe += "  ·  livre";
+            if (!"?".equals(p.versao)) detalhe += "  ·  v" + p.versao;
+
+            TextView info = new TextView(this);
+            info.setText(detalhe);
+            info.setTextColor(COR_FRACA);
+            info.setTextSize(12);
+            LinearLayout.LayoutParams lpInfo = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lpInfo.topMargin = dp(4);
+            card.addView(info, lpInfo);
+
+            LinearLayout.LayoutParams lpCard = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lpCard.bottomMargin = dp(10);
+            lista.addView(card, lpCard);
+        }
+    }
+
     private void conectar(String url) {
-        String atual = prefs.getString("url", null);
-        if (url.equals(atual) && web.getUrl() != null) return;
+        jaEscolheu = true;
         prefs.edit().putString("url", url).apply();
-        esconderOverlay();
+        painel.setVisibility(View.GONE);
+        web.setVisibility(View.VISIBLE);
         web.loadUrl(url);
     }
 
     // ------------------------------------------------------------ tela
+
+    private void paisagem() {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+    }
+
+    private void retrato() {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+    }
+
+    /** Volta pra lista de PCs (o /inicio chama isso no botao "trocar de PC"). */
+    private void mostrarEscolha(String avisoTexto) {
+        retrato();
+        jaEscolheu = false;
+        painel.setVisibility(View.VISIBLE);
+        painel.bringToFront();
+        telaCheia();
+        if (avisoTexto != null) {
+            aviso = avisoTexto;
+            status.setTextColor(0xFFFFB4B4);
+            status.setText(avisoTexto);
+            atualizarLista(new ArrayList<>(achados.values()));
+        }
+        procurar(false);
+    }
 
     private void telaCheia() {
         View decor = getWindow().getDecorView();
@@ -192,75 +321,160 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void montarOverlay() {
-        overlay = new LinearLayout(this);
-        overlay.setOrientation(LinearLayout.VERTICAL);
-        overlay.setGravity(Gravity.CENTER);
-        overlay.setBackgroundColor(COR_FUNDO);
-        overlay.setPadding(48, 48, 48, 48);
+    private void montarPainel() {
+        painel = new LinearLayout(this);
+        painel.setOrientation(LinearLayout.VERTICAL);
+        painel.setBackgroundColor(COR_FUNDO);
+        painel.setPadding(dp(20), dp(28), dp(20), dp(18));
+        painel.setClickable(true);   // nao deixa o toque vazar pro webview
 
-        overlayTitulo = new TextView(this);
-        overlayTitulo.setTextColor(COR_TEXTO);
-        overlayTitulo.setTextSize(19);
-        overlayTitulo.setGravity(Gravity.CENTER);
-        overlay.addView(overlayTitulo);
+        LinearLayout topo = new LinearLayout(this);
+        topo.setOrientation(LinearLayout.HORIZONTAL);
+        topo.setGravity(Gravity.CENTER_VERTICAL);
 
-        overlayDetalhe = new TextView(this);
-        overlayDetalhe.setTextColor(0xFF8A94A3);
-        overlayDetalhe.setTextSize(13);
-        overlayDetalhe.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = 14;
-        overlay.addView(overlayDetalhe, lp);
+        TextView logo = new TextView(this);
+        logo.setText("PP");
+        logo.setTextColor(0xFF2A1600);
+        logo.setTextSize(17);
+        logo.setTypeface(null, android.graphics.Typeface.BOLD);
+        logo.setGravity(Gravity.CENTER);
+        GradientDrawable bgLogo = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFFFFD34D, 0xFFF09100});
+        bgLogo.setCornerRadius(dp(15));
+        logo.setBackground(bgLogo);
+        LinearLayout.LayoutParams lpLogo = new LinearLayout.LayoutParams(dp(52), dp(52));
+        lpLogo.rightMargin = dp(13);
+        topo.addView(logo, lpLogo);
 
-        Button tentar = new Button(this);
-        tentar.setText("Tentar de novo");
-        tentar.setOnClickListener(new View.OnClickListener() {
+        LinearLayout titulos = new LinearLayout(this);
+        titulos.setOrientation(LinearLayout.VERTICAL);
+
+        TextView titulo = new TextView(this);
+        titulo.setText("PIXELPAD");
+        titulo.setTextColor(0xFFF7C518);
+        titulo.setTextSize(24);
+        titulo.setTypeface(null, android.graphics.Typeface.BOLD_ITALIC);
+        titulos.addView(titulo);
+
+        TextView sub = new TextView(this);
+        sub.setText("Escolha o computador");
+        sub.setTextColor(COR_FRACA);
+        sub.setTextSize(13);
+        titulos.addView(sub);
+
+        topo.addView(titulos);
+        painel.addView(topo);
+
+        ScrollView rolagem = new ScrollView(this);
+        LinearLayout.LayoutParams lpRol = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        lpRol.topMargin = dp(22);
+        lista = new LinearLayout(this);
+        lista.setOrientation(LinearLayout.VERTICAL);
+        rolagem.addView(lista);
+        painel.addView(rolagem, lpRol);
+
+        status = new TextView(this);
+        status.setText("Procurando PCs na rede...");
+        status.setTextColor(COR_FRACA);
+        status.setTextSize(12);
+        status.setLineSpacing(dp(3), 1f);
+        LinearLayout.LayoutParams lpStatus = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lpStatus.topMargin = dp(10);
+        painel.addView(status, lpStatus);
+
+        Button procurar = new Button(this);
+        procurar.setText("Procurar de novo");
+        procurar.setAllCaps(false);
+        procurar.setTextColor(Color.WHITE);
+        procurar.setTextSize(14);
+        procurar.setTypeface(null, android.graphics.Typeface.BOLD);
+        GradientDrawable bgBtn = new GradientDrawable();
+        bgBtn.setColor(COR_AZUL);
+        bgBtn.setCornerRadius(dp(12));
+        procurar.setBackground(bgBtn);
+        procurar.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
-                mostrarOverlay("Procurando o PC...", "");
-                procurar(false);
-            }
+            public void onClick(View v) { procurar(true); }
         });
         LinearLayout.LayoutParams lpBtn = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lpBtn.topMargin = 28;
-        overlay.addView(tentar, lpBtn);
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        lpBtn.topMargin = dp(12);
+        painel.addView(procurar, lpBtn);
 
-        addContentView(overlay, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
-        overlay.setVisibility(View.GONE);
+        TextView dica = new TextView(this);
+        dica.setText("O celular e o PC precisam estar no mesmo Wi-Fi.");
+        dica.setTextColor(0xFF4B5766);
+        dica.setTextSize(11);
+        dica.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams lpDica = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lpDica.topMargin = dp(10);
+        painel.addView(dica, lpDica);
+
+        raiz.addView(painel, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        web.setVisibility(View.INVISIBLE);
     }
 
-    private void mostrarOverlay(String titulo, String detalhe) {
-        overlayTitulo.setText(titulo);
-        overlayDetalhe.setText(detalhe);
-        overlay.setVisibility(View.VISIBLE);
-        overlay.bringToFront();
+    /** Ponte usada pela pagina: mudar orientacao e voltar pra lista de PCs. */
+    private class Ponte {
+        @JavascriptInterface
+        public void tela(final String modo) {
+            if (modo == null) return;
+            ui.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (modo.startsWith("terra") || modo.equals("retrato")) retrato();
+                    else paisagem();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void dispositivos() {
+            ui.post(new Runnable() {
+                @Override
+                public void run() { mostrarEscolha(null); }
+            });
+        }
     }
 
-    private void esconderOverlay() {
-        overlay.setVisibility(View.GONE);
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density + 0.5f);
     }
 
-    private void mostrarErro(String titulo, String detalhe) {
-        mostrarOverlay(titulo, detalhe);
-        overlayTitulo.setTextColor(COR_TEXTO);
-        overlayDetalhe.setTextColor(0xFF8A94A3);
-        overlayTitulo.setText(titulo);
+    private GradientDrawable fundo(int cor, int borda, int raioDp) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(cor);
+        d.setCornerRadius(dp(raioDp));
+        d.setStroke(1, borda);
+        return d;
     }
 
     // ------------------------------------------------------------ ciclo de vida
 
     @Override
     public void onBackPressed() {
-        // voltar fecha o teclado/editor, mas nao mata o controle sem querer
-        if (overlay.getVisibility() == View.VISIBLE) {
-            moveTaskToBack(true);
+        if (painel.getVisibility() != View.VISIBLE) {
+            String atual = web.getUrl();
+            if (atual != null && atual.contains("/game")) {
+                // do controle, voltar leva pra escolha do estilo, nao fecha o app
+                locationInicio(atual);
+                return;
+            }
+            mostrarEscolha(null);
             return;
         }
         moveTaskToBack(true);
+    }
+
+    private void locationInicio(String atual) {
+        retrato();
+        int i = atual.indexOf("/game");
+        if (i > 0) web.loadUrl(atual.substring(0, i) + "/inicio" + (atual.indexOf('?') > 0
+                ? atual.substring(atual.indexOf('?')) : ""));
     }
 
     @Override
@@ -270,7 +484,7 @@ public class MainActivity extends Activity {
             @Override
             public void run() { telaCheia(); }
         });
-        if (web.getUrl() == null) procurar(false);
+        if (painel.getVisibility() == View.VISIBLE && achados.isEmpty()) procurar(false);
     }
 
     @Override

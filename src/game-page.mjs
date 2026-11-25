@@ -248,12 +248,13 @@ function montarPreset(marca, estilo) {
 function sincronizarPerfil() {
   let p = null;
   try { p = JSON.parse(localStorage.getItem(PERFIL_KEY)); } catch (e) {}
-  if (!p || !p.marca || !p.estilo) return;
-  if (!MARCAS[p.marca] || !ESTILOS[p.estilo]) return;
-  if (dados.marca === p.marca && dados.estilo === p.estilo) return;
-  dados.nodes = montarPreset(p.marca, p.estilo);
+  if (!p || !p.marca) return;
+  const estilo = p.estilo && ESTILOS[p.estilo] ? p.estilo : 'padrao';
+  if (!MARCAS[p.marca]) return;
+  if (dados.marca === p.marca && dados.estilo === estilo) return;
+  dados.nodes = montarPreset(p.marca, estilo);
   dados.marca = p.marca;
-  dados.estilo = p.estilo;
+  dados.estilo = estilo;
   salvar();
 }
 
@@ -627,7 +628,7 @@ function atualizarBotaoModo() {
 document.getElementById('bmodo').onclick = alternarModo;
 
 document.getElementById('bperfis').onclick = () => {
-  location.href = '/inicio' + (location.search ? location.search + '&menu=1' : '?menu=1');
+  location.href = '/inicio' + location.search;
 };
 
 document.getElementById('bfull').onclick = () => {
@@ -640,6 +641,8 @@ sincronizarPerfil();
 aplicarMarca();
 aplicar();
 atualizarBotaoModo();
+// o celular fica em pe na escolha do controle e deita aqui
+if (window.PixelPad && PixelPad.tela) { try { PixelPad.tela('paisagem'); } catch (e) {} }
 connect();
 </script>
 </body></html>`;

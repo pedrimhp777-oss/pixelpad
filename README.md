@@ -42,11 +42,35 @@ Prefere não instalar nada? Baixe o `.zip` portátil, descompacte e rode `PixelP
 
 > O instalador usa o Node LTS oficial (licença MIT, incluída no pacote).
 
-## Perfis prontos (tela inicial)
+## Conectar em qual PC
 
-Quando o app abre, ele pergunta como você quer jogar — em duas escolhas independentes:
+Antes de tudo, o app pergunta **em qual computador** você quer conectar. Ele
+escuta a rede local e lista todos os PCs que estão rodando o PixelPad:
 
-**1. Estilo do controle (muda os símbolos)**
+```
+Notebook da sala
+192.168.3.99  ·  1 de 2 controles conectados  ·  v0.8.0
+
+PC do Pedro
+192.168.3.12  ·  livre  ·  v0.8.0
+```
+
+Tocar no nome conecta. Serve pra quem tem dois PCs em casa e pra não conectar
+no PixelPad errado quando tem mais de um na mesma rede Wi-Fi.
+
+**O nome é você que escolhe.** Na página que abre no PC (`/pair`) tem o campo
+**Nome deste PC** — o que você escrever ali é o que aparece no celular.
+
+A mesma página mostra **quem está conectado agora**: P1 em azul, P2 em vermelho,
+o IP do celular e há quanto tempo. Se o celular cair, some da lista na hora.
+
+Se só existir um PC na rede e ele for o mesmo da última vez, o app entra direto
+nele sem perguntar.
+
+## Estilo do controle (tela inicial)
+
+O celular abre **em pé**, com os três estilos em cards. **Tocar no card já entra
+no controle** — não tem botão de jogar. Quando o gamepad abre, a tela deita sozinha.
 
 | Perfil | Direita | Ombros | Esconde |
 |---|---|---|---|
@@ -54,22 +78,14 @@ Quando o app abre, ele pergunta como você quer jogar — em duas escolhas indep
 | Xbox | A verde, B vermelho, X azul, Y amarelo | LB LT RB RT, VIEW, MENU | — |
 | Nintendo clássico | X em cima, Y à esquerda, A à direita, B embaixo | L e R | analógicos, gatilhos analógicos, touchpad, PS |
 
-**2. Tipo de jogo (muda a posição)**
+O perfil usado por último aparece com a borda branca.
 
-| Estilo | Como fica |
-|---|---|
-| Padrão | direcional em cima, analógico embaixo — medida do PPSSPP |
-| Luta | direcional e 4 botões grandes, sem analógico no caminho |
-| Corrida | analógico grande à esquerda, gatilhos largos em cima |
-| Plataforma | direcional à esquerda, botão de pulo grande à direita |
-
-Os dois se combinam: Xbox + Corrida, Nintendo + Luta, e assim por diante.
-Depois de escolher, o app abre direto no controle. Pra trocar, toque no **⊞**
-no topo da tela.
+Embaixo ficam dois atalhos: **meu layout atual** (entra sem aplicar preset, mantendo
+o que você arrumou) e **trocar de PC** (volta pra lista de computadores).
 
 ### De onde vieram as posições
 
-O perfil **Padrão** não é chute: saiu do código-fonte do [PPSSPP](https://github.com/hrydgard/ppsspp)
+O layout padrão não é chute: saiu do código-fonte do [PPSSPP](https://github.com/hrydgard/ppsspp)
 (`UI/GamepadEmu.cpp`, função `InitPadLayout`, com `D_pad_Radius = 50`,
 `baseActionButtonSpacing = 60` e `scale = 1.15`):
 
@@ -88,8 +104,9 @@ o polegar alcança o analógico sem soltar o celular.
 Quando a marca esconde os analógicos (Nintendo clássico), o direcional e os botões
 descem — reproduzindo o mesmo ajuste que o PPSSPP faz ao ocultar o stick.
 
-Os perfis de **Luta/Corrida/Plataforma** são ergonomia minha, não cópia de emulador:
-não existe convenção publicada pra eles.
+> Os presets de tipo de jogo (luta, corrida, plataforma) saíram da tela na 0.8.0:
+> atrapalhavam mais do que ajudavam. O código deles continua em `src/presets.mjs`,
+> inativo, caso voltem um dia.
 
 ## Modo menu e modo jogo
 
@@ -152,8 +169,8 @@ que quiser. Funciona com dois celulares, ou um celular + o navegador do PC.
 
 ## App Android (recomendado)
 
-O app tira o navegador da jogada: abre em tela cheia, acha o PC sozinho na rede e
-reconecta sozinho na próxima vez. Sem QR, sem digitar IP, sem certificado.
+O app tira o navegador da jogada: abre em tela cheia, em pé, lista os PCs que estão
+rodando o PixelPad na rede e deixa você escolher. Sem QR, sem digitar IP, sem certificado.
 
 1. Deixe o PixelPad aberto no PC
 2. No celular, abra `http://<ip>:8080/android` — o próprio PC entrega o APK
