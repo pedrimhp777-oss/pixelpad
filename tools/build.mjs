@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -19,6 +20,66 @@ const BUILD = path.join(ROOT, 'build');
 const APP = path.join(BUILD, 'app');
 const CACHE = path.join(BUILD, 'cache');
 const DIST = path.join(ROOT, 'dist');
+
+// ---- assinatura de codigo (opcional)
+// Sem certificado configurado o build sai igual (sem assinatura), so avisa. Com
+// certificado, assina o instalador e os binarios nativos que vao dentro dele.
+//   PIXELPAD_CERT=arquivo.pfx  PIXELPAD_CERT_PASS=senha
+//   ou PIXELPAD_CERT_SUBJECT="Nome do certificado" (certificado no store do Windows)
+//   ou PIXELPAD_SIGN_DLIB=... PIXELPAD_SIGN_METADATA=... (Azure Trusted Signing)
+function acharSigntool() {
+  if (process.env.PIXELPAD_SIGNTOOL) return process.env.PIXELPAD_SIGNTOOL;
+  const kits = ['C:/Program Files (x86)/Windows Kits/10/bin', 'C:/Program Files/Windows Kits/10/bin'];
+  for (const base of kits) {
+    try {
+      const vers = fs.readdirSync(base).sort().reverse();
+      for (const v of vers) {
+        const f = path.join(base, v, 'x64', 'signtool.exe');
+        if (fs.existsSync(f)) return f;
+      }
+    } catch {}
+  }
+  return null;
+}
+const SIGNTOOL = acharSigntool();
+const CERT_PFX = process.env.PIXELPAD_CERT;
+const CERT_PASS = process.env.PIXELPAD_CERT_PASS || '';
+const CERT_SUBJECT = process.env.PIXELPAD_CERT_SUBJECT;
+const SIGN_DLIB = process.env.PIXELPAD_SIGN_DLIB;
+const SIGN_MD = process.env.PIXELPAD_SIGN_METADATA;
+const TIMESTAMP = process.env.PIXELPAD_TIMESTAMP || 'http://timestamp.digicert.com';
+const ASSINA = !!SIGNTOOL && !!(SIGN_DLIB ? SIGN_MD : (CERT_PFX || CERT_SUBJECT));
+
+function assinar(arquivo) {
+  if (!ASSINA || !fs.existsSync(arquivo)) return false;
+  const args = ['sign', '/fd', 'sha256', '/tr', TIMESTAMP, '/td', 'sha256'];
+  if (SIGN_DLIB) args.push('/dlib', SIGN_DLIB, '/dmdf', SIGN_MD);
+  else if (CERT_PFX) args.push('/f', CERT_PFX, '/p', CERT_PASS);
+  else args.push('/n', CERT_SUBJECT);
+  args.push(arquivo);
+  try {
+    execFileSync(SIGNTOOL, args, { stdio: 'inherit' });
+    console.log('     assinado: ' + path.basename(arquivo));
+    return true;
+  } catch (e) {
+    console.log('     [!] falhou assinar ' + path.basename(arquivo));
+    return false;
+  }
+}
+function nativosEm(dir) {
+  const out = [];
+  const ver = d => {
+    let itens = [];
+    try { itens = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const it of itens) {
+      const f = path.join(d, it.name);
+      if (it.isDirectory()) ver(f);
+      else if (/\.(dll|node)$/i.test(it.name)) out.push(f);
+    }
+  };
+  ver(dir);
+  return out;
+}
 
 const NODE_VER = 'latest-v24.x';
 const NODE_URL = `https://nodejs.org/dist/${NODE_VER}/win-x64/node.exe`;
@@ -63,6 +124,7 @@ copiar(path.join(CACHE, 'LICENSE-node.txt'), path.join(APP, 'LICENSE-node.txt'))
 for (const f of ['package.json', 'package-lock.json', 'icon-192.png', 'icon-512.png', 'LICENSE', 'README.md']) {
   copiar(path.join(ROOT, f), path.join(APP, f));
 }
+copiar(path.join(BUILD, 'icon.ico'), path.join(APP, 'icon.ico'));
 for (const f of fs.readdirSync(path.join(ROOT, 'src')).filter(x => x.endsWith('.mjs'))) {
   copiar(path.join(ROOT, 'src', f), path.join(APP, 'src', f));
 }
@@ -77,22 +139,20 @@ if (fs.existsSync(apkSrc)) {
   console.log('     (sem APK ainda - rode npm run build:apk para incluir o app Android)');
 }
 
+step('Assinatura dos binarios nativos');
+if (!ASSINA) {
+  console.log('     sem certificado configurado: o pacote sai sem assinatura');
+} else {
+  for (const f of nativosEm(APP)) assinar(f);
+}
+
 step('Instalando dependencias de producao');
 execFileSync('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: APP, stdio: 'inherit', shell: true });
 fs.rmSync(path.join(APP, 'package-lock.json'), { force: true });
 
-const vbs = `' PixelPad - sobe o servidor sem janela e abre a pagina de pareamento.
-Set fso = CreateObject("Scripting.FileSystemObject")
-dir = fso.GetParentFolderName(WScript.ScriptFullName)
-Set sh = CreateObject("WScript.Shell")
-sh.CurrentDirectory = dir
-If fso.FileExists(dir & "\\node.exe") Then
-  sh.Run """" & dir & "\\node.exe"" """ & dir & "\\src\\server.mjs""", 0, False
-End If
-WScript.Sleep 2500
-sh.Run "http://127.0.0.1:8080/pair", 1, False
-`;
-fs.writeFileSync(path.join(APP, 'PixelPad.vbs'), vbs, { encoding: 'latin1' });
+// Sem lancador escondido: o atalho chama o proprio node.exe (assinado pela
+// OpenJS Foundation) com o servidor. Um .vbs que sobe processo com a janela
+// escondida + chave de autorun e o padrao que os antivirus marcam como virus.
 
 const tamanho = execFileSync('powershell', ['-NoProfile', '-Command',
   `"{0:N1} MB" -f ((Get-ChildItem -Recurse '${APP}' | Measure-Object Length -Sum).Sum / 1MB)`])
@@ -129,37 +189,54 @@ MinVersion=10.0
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\\BrazilianPortuguese.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
-[Tasks]
-Name: "autostart"; Description: "Iniciar junto com o Windows (recomendado)"; GroupDescription: "Opções:"; Flags: checkedonce
-Name: "desktopicon"; Description: "Criar atalho na Área de Trabalho"; GroupDescription: "Opções:"
-
 [Files]
 Source: "${APP.replace(/\\/g, '\\\\')}\\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
-[Icons]
-Name: "{group}\\{#AppName}"; Filename: "{app}\\PixelPad.vbs"; IconFilename: "{app}\\icon-512.png"; Comment: "Controle do PC pelo celular"
-Name: "{autodesktop}\\{#AppName}"; Filename: "{app}\\PixelPad.vbs"; IconFilename: "{app}\\icon-512.png"; Tasks: desktopicon
-Name: "{group}\\Desinstalar {#AppName}"; Filename: "{uninstallexe}"
+[Tasks]
+Name: "autostart"; Description: "Abrir junto com o Windows"; GroupDescription: "Opções:"; Flags: unchecked
+Name: "desktopicon"; Description: "Criar atalho na Área de Trabalho"; GroupDescription: "Opções:"; Flags: unchecked
 
-[Registry]
-Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "PixelPad"; ValueData: """{app}\\PixelPad.vbs"""; Flags: uninsdeletevalue; Tasks: autostart
+[Icons]
+Name: "{group}\\{#AppName}"; Filename: "{app}\\node.exe"; Parameters: """{app}\\src\\server.mjs"""; WorkingDir: "{app}"; IconFilename: "{app}\\icon.ico"; Comment: "Controle do PC pelo celular"
+Name: "{group}\\Desinstalar {#AppName}"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\\{#AppName}"; Filename: "{app}\\node.exe"; Parameters: """{app}\\src\\server.mjs"""; WorkingDir: "{app}"; IconFilename: "{app}\\icon.ico"; Tasks: desktopicon
+Name: "{userstartup}\\{#AppName}"; Filename: "{app}\\node.exe"; Parameters: """{app}\\src\\server.mjs"""; WorkingDir: "{app}"; IconFilename: "{app}\\icon.ico"; Tasks: autostart
 
 [Run]
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad TCP"""; Flags: runhidden
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad UDP"""; Flags: runhidden
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall add rule name=""PixelPad TCP"" dir=in action=allow protocol=TCP localport=8080,8443 profile=private"; Flags: runhidden
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall add rule name=""PixelPad UDP"" dir=in action=allow protocol=UDP localport=9999 profile=private"; Flags: runhidden
-Filename: "{app}\\PixelPad.vbs"; Description: "Abrir o PixelPad agora"; Flags: shellexec nowait postinstall skipifsilent
-
-[UninstallRun]
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad TCP"""; Flags: runhidden
-Filename: "{sys}\\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""PixelPad UDP"""; Flags: runhidden
+Filename: "{app}\\node.exe"; Parameters: """{app}\\src\\server.mjs"""; WorkingDir: "{app}"; Description: "Abrir o PixelPad agora"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}\\data"
-Type: filesandordirs; Name: "{app}\\certs"
 Type: filesandordirs; Name: "{app}\\node_modules"
+
+[Code]
+// O servidor roda com a janela minimizada (da pra abrir e ver o log, e fechar
+// pra desligar). Sem lancador escondido, sem chave de autorun, sem regra de
+// firewall silenciosa: o Windows pergunta uma vez, na primeira execucao.
+procedure MinimizarAtalho(const Lnk: String);
+var Shell, Atalho: Variant;
+begin
+  if not FileExists(Lnk) then Exit;
+  try
+    Shell := CreateOleObject('WScript.Shell');
+    Atalho := Shell.CreateShortcut(Lnk);
+    Atalho.WindowStyle := 7;
+    Atalho.Save;
+  except
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    MinimizarAtalho(ExpandConstant('{group}\\{#AppName}.lnk'));
+    MinimizarAtalho(ExpandConstant('{autodesktop}\\{#AppName}.lnk'));
+    MinimizarAtalho(ExpandConstant('{userstartup}\\{#AppName}.lnk'));
+  end;
+end;
+
 `;
+
 const issPath = path.join(BUILD, 'installer.iss');
 fs.writeFileSync(issPath, iss);
 
@@ -168,6 +245,7 @@ fs.mkdirSync(DIST, { recursive: true });
 if (ISCC) {
   step('Compilando o instalador');
   execFileSync(ISCC, ['/Q', issPath], { stdio: 'inherit' });
+  assinar(path.join(DIST, `PixelPad-Setup-${pkg.version}.exe`));
   console.log(`     dist/PixelPad-Setup-${pkg.version}.exe`);
 } else {
   console.log('\n  [!] Inno Setup nao encontrado - instalador nao gerado.');
@@ -181,6 +259,18 @@ fs.rmSync(zip, { force: true });
 execFileSync('powershell', ['-NoProfile', '-Command',
   `Compress-Archive -Path '${APP}\\*' -DestinationPath '${zip}' -CompressionLevel Optimal`],
   { stdio: 'inherit' });
+
+step('SHA-256 dos arquivos');
+const linhas = [];
+for (const f of fs.readdirSync(DIST).sort()) {
+  if (!f.startsWith('PixelPad-' + pkg.version) && !f.startsWith('PixelPad-Setup-' + pkg.version)) continue;
+  if (!/\.(exe|zip|apk)$/i.test(f)) continue;
+  const h = crypto.createHash('sha256');
+  h.update(fs.readFileSync(path.join(DIST, f)));
+  linhas.push(h.digest('hex') + '  ' + f);
+}
+fs.writeFileSync(path.join(DIST, 'SHA256SUMS.txt'), linhas.join('\n') + '\n');
+for (const l of linhas) console.log('     ' + l);
 
 step('Pronto');
 for (const f of fs.readdirSync(DIST)) {

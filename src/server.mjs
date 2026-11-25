@@ -30,6 +30,45 @@ const PORT = 8080;
 const PORT_S = 8443;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
+
+// Onde o app GRAVA (token de pareamento, nome do PC, backup de layout e os
+// certificados do HTTPS). Instalado em Program Files a pasta do programa nao e
+// gravavel para o usuario comum, e escrever la exigiria rodar como admin - o que
+// e um gatilho classico de antivirus. Entao: tenta a propria pasta do programa
+// (zip portatil numa pasta gravavel continua guardando tudo junto) e, se nao der,
+// usa %LOCALAPPDATA%\PixelPad. PIXELPAD_HOME forca um lugar especifico.
+function acharBase() {
+  const forcado = process.env.PIXELPAD_HOME;
+  const tentativas = forcado ? [forcado]
+    : (process.env.LOCALAPPDATA ? [ROOT, path.join(process.env.LOCALAPPDATA, 'PixelPad')] : [ROOT]);
+  for (const c of tentativas) {
+    try {
+      fs.mkdirSync(c, { recursive: true });
+      const teste = path.join(c, '.escrita');
+      fs.writeFileSync(teste, 'ok');
+      fs.unlinkSync(teste);
+      return c;
+    } catch {}
+  }
+  return ROOT;
+}
+const BASE = acharBase();
+const DATA = path.join(BASE, 'data');
+const CERTS = path.join(BASE, 'certs');
+try { fs.mkdirSync(DATA, { recursive: true }); } catch {}
+try { fs.mkdirSync(CERTS, { recursive: true }); } catch {}
+// instalação nova em Program Files: traz o que existia na pasta do programa
+if (BASE !== ROOT) {
+  try {
+    const velho = path.join(ROOT, 'data');
+    if (fs.existsSync(velho) && !fs.existsSync(path.join(DATA, 'token.txt'))) {
+      for (const f of ['token.txt', 'config.json', 'layouts.json']) {
+        try { if (fs.existsSync(path.join(velho, f))) fs.copyFileSync(path.join(velho, f), path.join(DATA, f)); } catch {}
+      }
+      logLine('migrei os dados de ' + velho + ' para ' + DATA);
+    }
+  } catch {}
+}
 const user32 = koffi.load('user32.dll');
 const mouseEvent = user32.func('void mouse_event(uint32 f, int32 dx, int32 dy, uint32 d, void *e)');
 const keybdEvent = user32.func('void keybd_event(uint8 vk, uint8 scan, uint32 flags, void *e)');
@@ -174,7 +213,7 @@ function pararMacro(slot) {
 // O layout vive no localStorage do celular, que e amarrado ao endereco do PC.
 // Se o IP mudar (ou o cara limpar os dados do app), ele sumiria. Aqui fica uma
 // copia no PC: o gamepad manda sempre que salva e puxa de volta se abrir vazio.
-const LAYOUTS_FILE = path.join(ROOT, 'data', 'layouts.json');
+const LAYOUTS_FILE = path.join(DATA, 'layouts.json');
 function lerLayouts() {
   try { return JSON.parse(fs.readFileSync(LAYOUTS_FILE, 'utf8')); } catch { return {}; }
 }
@@ -188,8 +227,6 @@ function gravarLayouts(o) {
 const VERSAO = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version; } catch { return '0'; } })();
 
 // ---------------- pareamento ----------------
-const DATA = path.join(ROOT, 'data');
-try { fs.mkdirSync(DATA, { recursive: true }); } catch {}
 const TOKFILE = path.join(DATA, 'token.txt');
 let TOKEN = '';
 try { TOKEN = fs.readFileSync(TOKFILE, 'utf8').trim(); } catch {}
@@ -393,7 +430,7 @@ const ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
 
 function serveFile(res, file, type) {
   try {
-    const buf = fs.readFileSync(path.join(ROOT, file));
+    const buf = fs.readFileSync(path.isAbsolute(file) ? file : path.join(ROOT, file));
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
     res.end(buf);
   } catch (e) {
@@ -609,7 +646,7 @@ setInterval(atualizar, 3000);
     return res.end(buf);
   }
   if (u === '/ca.crt' || u === '/ca.ctr' || u === '/cert' || u === '/certificado') {
-    return serveFile(res, 'certs/ca.crt', 'application/x-x509-ca-cert');
+    return serveFile(res, path.join(CERTS, 'ca.crt'), 'application/x-x509-ca-cert');
   }
   if (u === '/icon-192.png') return serveFile(res, 'icon-192.png', 'image/png');
   if (u === '/icon-512.png') return serveFile(res, 'icon-512.png', 'image/png');
@@ -633,7 +670,7 @@ const server = http.createServer(handle);
 
 let serverS = null;
 try {
-  const { key, cert } = await ensureCerts(ROOT, lanIP());
+  const { key, cert } = await ensureCerts(BASE, lanIP());
   serverS = https.createServer({ key, cert }, handle);
 } catch (e) {
   logLine('HTTPS desativado: ' + e.message);

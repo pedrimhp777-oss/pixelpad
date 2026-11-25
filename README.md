@@ -35,12 +35,71 @@ Baixe o **PixelPad-Setup-x.y.z.exe** em [Releases](https://github.com/pedrimhp77
 clique duas vezes, avançar, instalar. O instalador já traz o Node embutido: não precisa
 instalar Node, nem abrir terminal, nem instalar certificado.
 
-Ele cria o atalho, libera o firewall, pergunta se quer iniciar junto com o Windows e
-abre a página com o QR code no final.
+Ele cria o atalho, pergunta se quer iniciar junto com o Windows (opcional) e abre a
+página com o QR code no final. O servidor aparece **minimizado na barra de tarefas**:
+dá para abrir e ver o log, e fechar para desligar.
 
-Prefere não instalar nada? Baixe o `.zip` portátil, descompacte e rode `PixelPad.vbs`.
+Na primeira execução o Windows pergunta uma vez se o app pode usar a rede (é o
+firewall padrão do sistema) — **aceite em rede privada**, senão o celular não acha o PC.
+
+Prefere não instalar nada? Baixe o `.zip` portátil, descompacte e rode o **`node.exe`
+que vem dentro** (atalho: crie um para `node.exe src\server.mjs` nessa pasta).
 
 > O instalador usa o Node LTS oficial (licença MIT, incluída no pacote).
+
+## Antivírus, SmartScreen e assinatura
+
+O Windows mostra dois avisos diferentes, e nenhum dos dois quer dizer que o app faz
+algo errado:
+
+- **SmartScreen** ("O Windows protegeu o seu PC"): aparece em **qualquer** programa
+  baixado da internet que ainda não tenha reputação. Ele olha assinatura digital e
+  quantas vezes aquele arquivo já foi baixado — todo build novo é um arquivo novo,
+  então começa sem reputação: **Clique em "Mais informações" → "Executar assim mesmo"**.
+- **Antivírus** ("Wacatac", "Trojan:Win32/...!ml"): são detecções por comportamento
+  (machine learning), não por código malicioso conhecido. Instaladores novos, sem
+  assinatura, que mexem em firewall e criam atalhos de inicialização caem nisso.
+
+O que o PixelPad **não** faz: não manda seus dados para lugar nenhum, não fala com a
+internet (só com o celular na sua rede local), não instala driver nenhum (o ViGEmBus
+você instala do site oficial, se ainda não tiver).
+
+A partir da **0.20.0** o pacote ficou bem menos "cara de malware":
+
+- sem lançador `.vbs` que sobe processo com a janela escondida;
+- sem regra de firewall criada silenciosamente pelo instalador (agora o Windows
+  pergunta uma vez);
+- sem chave de inicialização automática no registro (o "abrir junto com o Windows"
+  é opcional e virou atalho na pasta Iniciar);
+- os dados (token, nome do PC, backup de layout, certificados) ficam em
+  `%LOCALAPPDATA%\PixelPad`, não em `Program Files`;
+- o programa roda com o `node.exe` oficial, **assinado pela OpenJS Foundation**.
+
+**Confira o arquivo que você baixou.** Cada release publica um `SHA256SUMS.txt`.
+No PowerShell:
+
+```powershell
+Get-FileHash .\PixelPad-Setup-0.20.0.exe -Algorithm SHA256
+```
+
+O resultado tem que ser igual à linha correspondente do `SHA256SUMS.txt`.
+
+**Assinatura digital**: o build já está preparado para assinar (instalador, DLL do
+ViGEm e o addon do koffi). Falta só o certificado — quando ele existir, o alerta do
+SmartScreen desaparece. Para assinar:
+
+```powershell
+$env:PIXELPAD_CERT = 'C:\caminho\certificado.pfx'
+$env:PIXELPAD_CERT_PASS = 'senha'
+npm run build:all
+```
+
+(ou `PIXELPAD_CERT_SUBJECT` para um certificado instalado no Windows, ou
+`PIXELPAD_SIGN_DLIB` + `PIXELPAD_SIGN_METADATA` para o Azure Trusted Signing.)
+
+Se o seu antivírus reclamar mesmo assim, mande o arquivo para análise da Microsoft
+em <https://www.microsoft.com/en-us/wdsi/filesubmission> — falso positivo assim é
+corrigido em 24-72 h.
 
 ## Conectar em qual PC
 
