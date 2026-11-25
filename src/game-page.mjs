@@ -23,7 +23,7 @@ export function gamePage({ CSS, SVG }) {
 <link rel="apple-touch-icon" href="/icon.svg">
 <title>PixelPad</title>
 <style>` + CSS + `
-  #stage { position: absolute; inset: 0; overflow: hidden; }
+  #stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
   .node { position: absolute; transform-origin: center center; touch-action: none;
     -webkit-user-select: none; user-select: none; }
   .node.sel { outline: 2px dashed #2b6df6; outline-offset: 5px; border-radius: 10px; }
@@ -77,18 +77,24 @@ export function gamePage({ CSS, SVG }) {
   #editor button.on { background: #2b6df6; color: #fff; }
   body.editing #editor { display: flex; }
 
-  #confirma { position: absolute; inset: 0; background: rgba(5,7,10,.72); display: none; z-index: 60;
+  #confirma, #ajustes { position: absolute; inset: 0; background: rgba(5,7,10,.72); display: none; z-index: 60;
     align-items: center; justify-content: center; }
-  #confirma.aberto { display: flex; }
-  #confirma .caixa { background: #171e2a; border: 1px solid #232f40; border-radius: 3vmin;
+  #confirma.aberto, #ajustes.aberto { display: flex; }
+  #confirma .caixa, #ajustes .caixa { background: #171e2a; border: 1px solid #232f40; border-radius: 3vmin;
     padding: 3.6vmin 4vmin 2.8vmin; max-width: 92vmin; box-shadow: 0 3vmin 9vmin rgba(0,0,0,.65); }
-  #confirma h3 { margin: 0 0 1.2vmin; font-size: 3.4vmin; font-weight: 800; }
-  #confirma p { margin: 0 0 2.8vmin; font-size: 2.7vmin; line-height: 1.5; color: #97a3b4; }
-  #confirma .botoes { display: flex; gap: 1.8vmin; }
-  #confirma button { flex: 1; padding: 2.2vmin 3vmin; border-radius: 2vmin; border: 0; font-size: 3vmin;
-    font-weight: 700; }
+  #confirma h3, #ajustes h3 { margin: 0 0 1.2vmin; font-size: 3.4vmin; font-weight: 800; }
+  #confirma p, #ajustes p { margin: 0 0 2.8vmin; font-size: 2.7vmin; line-height: 1.5; color: #97a3b4; }
+  #confirma .botoes, #ajustes .botoes { display: flex; gap: 1.8vmin; }
+  #confirma button, #ajustes button { flex: 1; padding: 2.2vmin 3vmin; border-radius: 2vmin; border: 0;
+    font-size: 3vmin; font-weight: 700; }
   #cCancelar { background: #101620; color: #97a3b4; border: 1px solid #232f40; }
   #cAcao { background: #2b6df6; color: #fff; }
+  /* ajustes do toque: um par de botoes que mostra o escolhido */
+  #ajustes .seg { display: flex; gap: 1.2vmin; margin: 0 0 2vmin; }
+  #ajustes .seg button { background: #101620; color: #97a3b4; border: 1px solid #232f40; }
+  #ajustes .seg button.on { background: #2b6df6; color: #fff; border-color: #2b6df6; }
+  #ajustes .dica { font-size: 2.3vmin !important; color: #6f7b8c !important; margin-bottom: 2.4vmin !important; }
+  #aFechar { background: #2b6df6; color: #fff; }
 
   #rot { display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
     text-align: center; font-size: 5vmin; padding: 10vmin; color: #7db6ff; }
@@ -122,7 +128,21 @@ export function gamePage({ CSS, SVG }) {
   <button id="bplus" title="aumentar">+</button>
   <button id="beye" title="ocultar/mostrar">&#128065;</button>
   <button id="breset" title="voltar ao lugar de fábrica">&#8635;</button>
+  <button id="bcfg" title="ajustes do toque">&#9881;</button>
   <button id="bdone" title="sair do editor">&#10003;</button>
+</div>
+<div id="ajustes">
+  <div class="caixa">
+    <h3>Ajustes do toque</h3>
+    <p style="margin-bottom:1.2vmin">Analógico</p>
+    <div class="seg">
+      <button id="aFixo">Fixo</button>
+      <button id="aDinamico">Dinâmico</button>
+    </div>
+    <p class="dica"><b>Fixo</b>: o analógico fica onde você colocou no editor.<br>
+      <b>Dinâmico</b>: ele nasce onde o dedo tocar (metade de baixo da tela) e acompanha o dedo.</p>
+    <div class="botoes"><button id="aFechar">Fechar</button></div>
+  </div>
 </div>
 <div id="confirma">
   <div class="caixa">
@@ -142,7 +162,7 @@ const st = document.getElementById('st');
 const stage = document.getElementById('stage');
 const state = {a:0,b:0,x:0,y:0,lb:0,rb:0,ls:0,rs:0,back:0,start:0,du:0,dd:0,dl:0,dr:0,
                lx:0,ly:0,rx:0,ry:0,lt:0,rt:0};
-let ws, dirty = false, editing = false, selected = null, selecionados = [];
+let ws, editing = false, selected = null, selecionados = [];
 let macros = [];   // vem de pixelpadMacros, configuradas em /macros
 
 // ---------------------------------------------------------------- nos do controle
@@ -178,9 +198,8 @@ for (const n of NOS) {
   else if (n.kind === 'tp') el.innerHTML = '<span>touchpad \u00b7 c\u00e2mera</span>';
   else if (n.svg) el.innerHTML = SVGS[n.svg];
   else el.textContent = n.txt;
+  if (n.b) el.dataset.b = n.b;
   stage.appendChild(el);
-  if (n.b) { el.dataset.b = n.b; ligarBotao(el, n.b); }
-  else if (n.kind === 'stick') ligarStick(el, n.id);
 }
 
 // ---------------------------------------------------------------- layout salvo
@@ -552,6 +571,7 @@ function escondido(id, L) {
 }
 
 function aplicar() {
+  alvosCache = null;   // as posicoes mudaram: o toque recalcula as areas
   for (const id in DEF) {
     const el = document.getElementById(id); if (!el) continue;
     const bruto = dados.nodes[id];
@@ -571,7 +591,6 @@ function aplicar() {
       el.id = id;
       el.dataset.id = id;
       stage.appendChild(el);
-      ligarMacro(el, m);
     }
     // macro sem icone (as antigas) usa o raio, igual ao da tela de macros
     const rot = m.icone || '\u26A1';
@@ -623,35 +642,12 @@ function telaLotado(max) {
   document.body.appendChild(d);
 }
 
-function push() { if (ws && ws.readyState === 1) { dirty = false; ws.send(JSON.stringify({ t: 'pad', d: state })); } }
-setInterval(() => { if (dirty) push(); }, 16);
+function push() { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'pad', d: state })); }
 
 function rodarMacro(m) {
   if (!ws || ws.readyState !== 1) return;
   if (navigator.vibrate) navigator.vibrate(m.turbo ? [8, 20, 8] : 10);
   ws.send(JSON.stringify({ t: 'macro', passos: m.passos, turbo: !!m.turbo }));
-}
-
-/** Botao de macro: segurar executa; soltar para o turbo. */
-function ligarMacro(el, m) {
-  let apertado = false;
-  el.addEventListener('pointerdown', ev => {
-    if (pertenceAoEditor(ev)) return;
-    ev.preventDefault();
-    if (editing) { selecionar(el.id); return; }
-    apertado = true;
-    el.classList.add('on');
-    rodarMacro(m);
-  });
-  const soltar = () => {
-    if (!apertado) return;
-    apertado = false;
-    el.classList.remove('on');
-    if (m.turbo && ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'macroStop' }));
-  };
-  el.addEventListener('pointerup', soltar);
-  el.addEventListener('pointercancel', soltar);
-  el.addEventListener('pointerleave', soltar);
 }
 
 /** Le as macros da tela /macros e garante um lugar pra cada botao no layout. */
@@ -677,66 +673,358 @@ function sincronizarMacros() {
   salvar();
 }
 
-// ---------------------------------------------------------------- botoes
-function pertenceAoEditor(ev) {
-  const alvo = ev.target;
-  return alvo && (alvo.closest('#editor') || alvo.closest('#hud') || alvo.closest('#confirma'));
+// ---------------------------------------------------------------- toque
+// Uma camada so de toque. Cada dedo (o pointerId) e dono de UM controle, e pode
+// escorregar pra outro; dois dedos no mesmo botao se respeitam (conta por bit).
+// O direcional e uma peca so, em 8 setores: a diagonal aperta dois bits com um
+// dedo. A ideia veio dos ports de celular (Dragon Rage / Tenkaichi 3), onde o
+// controle e um estado que o jogo le a cada quadro - aqui ele vira mensagem.
+
+const FOLGA = 1.15;        // 15% a mais que o desenhado tambem conta como toque
+const MIOLO_DPAD = 0.20;   // % do raio do direcional onde nada e apertado
+const MORTA = 12;          // % do raio do analogico que nao manda nada (dedo parado treme)
+const CURSO = 75;          // % do raio que ja da tilt total: corre com pouco dedo
+
+// ajustes do toque: ficam no aparelho, nao no layout
+const AJUSTES_KEY = 'pixelpadAjustes';
+const ajustes = (function () {
+  const a = { analogico: 'fixo' };
+  try {
+    const g = JSON.parse(localStorage.getItem(AJUSTES_KEY) || '{}');
+    if (g && g.analogico === 'dinamico') a.analogico = 'dinamico';
+  } catch (e) {}
+  return a;
+})();
+
+let alvosCache = null;
+
+function salvarAjustes() {
+  try { localStorage.setItem(AJUSTES_KEY, JSON.stringify(ajustes)); } catch (e) {}
+  alvosCache = null;
+  mostrarAjustes();
+}
+function mostrarAjustes() {
+  document.getElementById('aFixo').classList.toggle('on', ajustes.analogico !== 'dinamico');
+  document.getElementById('aDinamico').classList.toggle('on', ajustes.analogico === 'dinamico');
 }
 
-function ligarBotao(el, b) {
-  el.addEventListener('pointerdown', ev => {
-    if (pertenceAoEditor(ev)) return;
-    ev.preventDefault();
-    if (editing) { selecionar(el.id); return; }
-    // L2/R2 sao gatilhos analogicos (0..255): mandar 1 nao aperta nada nos jogos
-    state[b] = (b === 'lt' || b === 'rt') ? 255 : 1;
-    el.classList.add('on'); push();
-    if (navigator.vibrate) navigator.vibrate(8);
-  });
-  const soltar = ev => {
-    if (editing) return;
-    state[b] = 0; el.classList.remove('on'); push();
-  };
-  el.addEventListener('pointerup', soltar);
-  el.addEventListener('pointercancel', soltar);
-  el.addEventListener('pointerleave', soltar);
+function vibrar(ms) { if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
+
+// ---- registro dos controles (recalculado quando algo muda de lugar)
+
+function caixaDe(el) {
+  const r = el.getBoundingClientRect();
+  return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, hw: r.width / 2, hh: r.height / 2 };
 }
 
-function ligarStick(el, id) {
-  const knob = el.querySelector('.knob');
-  const chaves = id === 'ls' ? ['lx','ly'] : ['rx','ry'];
-  let ativo = null, cx = 0, cy = 0, raio = 1;
+function alvos() {
+  if (alvosCache) return alvosCache;
+  const lista = [];
 
-  el.addEventListener('pointerdown', ev => {
-    if (pertenceAoEditor(ev)) return;
-    ev.preventDefault();
-    if (editing) { selecionar(el.id); return; }
-    ativo = ev.pointerId; el.setPointerCapture(ativo);
-    const r = el.getBoundingClientRect();
-    cx = r.left + r.width / 2; cy = r.top + r.height / 2; raio = r.width * 0.42;
-    mover(ev);
-  });
-  function mover(ev) {
-    if (ativo === null || ev.pointerId !== ativo) return;
-    let dx = ev.clientX - cx, dy = ev.clientY - cy;
-    const d = Math.hypot(dx, dy);
-    if (d > raio) { dx = dx / d * raio; dy = dy / d * raio; }
-    state[chaves[0]] = Math.round(dx / raio * 32767);
-    state[chaves[1]] = Math.round(-dy / raio * 32767);
-    knob.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
-    push();
+  // o direcional entra como UMA peca (o bloco das 4 setas)
+  const setas = [];
+  for (const id of GRUPO_DPAD) {
+    const el = document.getElementById(id);
+    if (el && !el.classList.contains('hid')) setas.push(el);
   }
-  el.addEventListener('pointermove', mover);
-  const soltarStick = () => {
-    if (ativo === null) return;
-    ativo = null;
-    state[chaves[0]] = 0; state[chaves[1]] = 0;
-    knob.style.transform = 'translate(-50%,-50%)';
-    push();
-  };
-  el.addEventListener('pointerup', soltarStick);
-  el.addEventListener('pointercancel', soltarStick);
+  if (setas.length === 4) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const el of setas) {
+      const r = el.getBoundingClientRect();
+      x0 = Math.min(x0, r.left); y0 = Math.min(y0, r.top);
+      x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom);
+    }
+    lista.push({ id: '__dpad', tipo: 'dpad', cx: (x0 + x1) / 2, cy: (y0 + y1) / 2,
+                 hw: (x1 - x0) / 2, hh: (y1 - y0) / 2, membros: GRUPO_DPAD.slice() });
+  }
+
+  for (const id in DEF) {
+    if (GRUPO_DPAD.indexOf(id) >= 0) continue;
+    if (id === 'tp') continue;            // touchpad nao existe no Windows: nao recebe toque
+    const el = document.getElementById(id);
+    if (!el || el.classList.contains('hid')) continue;
+    const a = caixaDe(el);
+    a.id = id;
+    a.el = el;
+    a.tipo = (id === 'ls' || id === 'rs') ? 'stick' : 'botao';
+    a.b = el.dataset.b || null;
+    lista.push(a);
+  }
+
+  for (const m of macros) {
+    const el = document.getElementById(m._id);
+    if (!el || el.classList.contains('hid')) continue;
+    const a = caixaDe(el);
+    a.id = m._id; a.el = el; a.tipo = 'macro'; a.macro = m;
+    lista.push(a);
+  }
+
+  alvosCache = lista;
+  return lista;
 }
+
+/** O controle sob o dedo: o mais perto do centro entre os que passam no teste de toque. */
+function acharAlvo(x, y, folga) {
+  let melhor = null, melhorD = Infinity;
+  for (const a of alvos()) {
+    const dx = (x - a.cx) / (a.hw * folga || 1), dy = (y - a.cy) / (a.hh * folga || 1);
+    if (dx * dx + dy * dy > 1) continue;
+    const d = Math.hypot(x - a.cx, y - a.cy);
+    if (d < melhorD) { melhorD = d; melhor = a; }
+  }
+  return melhor;
+}
+
+function acharPorId(id) {
+  if (!id) return null;
+  if (GRUPO_DPAD.indexOf(id) >= 0) {
+    for (const a of alvos()) if (a.tipo === 'dpad') return a;
+    return null;
+  }
+  for (const a of alvos()) if (a.id === id) return a;
+  return null;
+}
+
+function aindaDentro(a, x, y, folga) {
+  const dx = (x - a.cx) / (a.hw * folga || 1), dy = (y - a.cy) / (a.hh * folga || 1);
+  return dx * dx + dy * dy <= 1;
+}
+
+// ---- botoes: quem esta segurando cada bit (dois dedos no mesmo botao)
+
+const segurados = {};   // bit -> ids de controle que estao em cima dele
+
+function segurar(a) {
+  const b = a.b;
+  if (!b) return;
+  const lista = segurados[b] || (segurados[b] = []);
+  if (lista.indexOf(a.id) < 0) lista.push(a.id);
+  // L2/R2 sao gatilhos analogicos (0..255): mandar 1 nao aperta nada nos jogos
+  state[b] = (b === 'lt' || b === 'rt') ? 255 : 1;
+  if (a.el) a.el.classList.add('on');
+}
+function soltar(a) {
+  const b = a.b;
+  if (!b) return;
+  const lista = segurados[b] || [];
+  const i = lista.indexOf(a.id);
+  if (i >= 0) lista.splice(i, 1);
+  if (!lista.length) state[b] = 0;
+  if (a.el) a.el.classList.remove('on');
+}
+
+// ---- direcional em 8 setores (a diagonal aperta dois bits com um dedo)
+
+const SETORES = [['dr'], ['dr', 'du'], ['du'], ['du', 'dl'],
+                 ['dl'], ['dl', 'dd'], ['dd'], ['dd', 'dr']];
+
+function setorDpad(a, x, y) {
+  const dx = x - a.cx, dy = y - a.cy;
+  const raio = Math.max(a.hw, a.hh);
+  if (Math.hypot(dx, dy) < raio * MIOLO_DPAD) return [];
+  const ang = (Math.atan2(-dy, dx) * 180 / Math.PI + 360 + 22.5) % 360;
+  return SETORES[Math.floor(ang / 45) % 8];
+}
+
+function aplicarSetor(a, dirs) {
+  for (const id of GRUPO_DPAD) {
+    const on = dirs.indexOf(id) >= 0;
+    state[id] = on ? 1 : 0;
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', on);
+  }
+}
+
+// ---- analogico: zona morta, curso curto e (opcional) nasce onde o dedo cai
+
+function bytesStick(dx, dy, raio) {
+  const d = Math.hypot(dx, dy);
+  if (!raio || d <= 0) return [0, 0];
+  const morta = raio * MORTA / 100;
+  const cheio = Math.max(morta + 1, raio * CURSO / 100);
+  if (d <= morta) return [0, 0];
+  const t = Math.min(1, (d - morta) / (cheio - morta));
+  const ang = Math.atan2(dy, dx);
+  return [Math.round(Math.cos(ang) * t * 32767), Math.round(-Math.sin(ang) * t * 32767)];
+}
+
+function moverStick(t, x, y) {
+  const a = t.alvo;
+  if (!a) return;
+  const chaves = a.id === 'ls' ? ['lx', 'ly'] : ['rx', 'ry'];
+  const v = bytesStick(x - t.ox, y - t.oy, t.raio);
+  state[chaves[0]] = v[0];
+  state[chaves[1]] = v[1];
+  let dx = x - t.ox, dy = y - t.oy;
+  const d = Math.hypot(dx, dy);
+  if (d > t.raio) { dx = dx / d * t.raio; dy = dy / d * t.raio; }
+  const knob = a.el && a.el.querySelector('.knob');
+  if (knob) knob.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
+  push();
+}
+
+// no modo dinamico o desenho do analógico foi parar no dedo: volta pro lugar do layout
+function voltarStick(a) {
+  const bruto = dados.nodes[a.id];
+  const L = (bruto && typeof bruto.x === 'number') ? bruto : DEF[a.id];
+  if (!L || !a.el) return;
+  a.el.style.left = L.x + '%';
+  a.el.style.top = L.y + '%';
+  alvosCache = null;
+}
+
+function zerarStick(a) {
+  const chaves = a.id === 'ls' ? ['lx', 'ly'] : ['rx', 'ry'];
+  state[chaves[0]] = 0;
+  state[chaves[1]] = 0;
+  const knob = a.el && a.el.querySelector('.knob');
+  if (knob) knob.style.transform = 'translate(-50%,-50%)';
+}
+
+/** Analogo dinamico: o dedo que cai na metade de baixo (lado do analogico) comeca ali. */
+function stickDaZona(x, y) {
+  if (ajustes.analogico !== 'dinamico') return null;
+  const r = stage.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  if (y - r.top < r.height * 0.30) return null;
+  const rel = (x - r.left) / r.width;
+  const id = rel < 0.45 ? 'ls' : (rel > 0.55 ? 'rs' : null);
+  if (!id) return null;
+  const a = acharPorId(id);
+  return (a && a.tipo === 'stick') ? a : null;
+}
+
+// ---- cada dedo
+
+const toques = {};
+
+function apertar(t, x, y) {
+  const a = t.alvo;
+  if (!a) return;
+  if (a.tipo === 'dpad') {
+    t.dir = setorDpad(a, x, y);
+    aplicarSetor(a, t.dir);
+    vibrar(8); push();
+    return;
+  }
+  if (a.tipo === 'stick') {
+    t.raio = (a.el.getBoundingClientRect().width || 2 * a.hw) * 0.42;
+    t.ox = a.cx; t.oy = a.cy;
+    // no dinamico o centro nasce no dedo (nao pula pro tilt da borda), e o
+    // desenho do analogico vai junto pra onde o dedo tocou
+    if (ajustes.analogico === 'dinamico') {
+      const r = stage.getBoundingClientRect();
+      if (r.width && r.height) {
+        t.ox = x; t.oy = y;
+        a.el.style.left = ((x - r.left) / r.width * 100) + '%';
+        a.el.style.top = ((y - r.top) / r.height * 100) + '%';
+        t.mexeu = true;
+        alvosCache = null;
+      }
+    }
+    moverStick(t, x, y);
+    return;
+  }
+  if (a.tipo === 'macro') {
+    if (a.el) a.el.classList.add('on');
+    rodarMacro(a.macro);
+    return;
+  }
+  segurar(a);
+  vibrar(8);
+  push();
+}
+
+function soltarAlvo(t) {
+  const a = t.alvo;
+  if (!a) return;
+  if (a.tipo === 'dpad') { aplicarSetor(a, []); t.dir = []; }
+  else if (a.tipo === 'stick') { zerarStick(a); if (t.mexeu) voltarStick(a); }
+  else if (a.tipo === 'macro') {
+    if (a.el) a.el.classList.remove('on');
+    if (a.macro && a.macro.turbo && ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'macroStop' }));
+  } else { soltar(a); }
+  t.alvo = null;
+  push();
+}
+
+function noHud(ev) {
+  const alvo = ev.target;
+  return !!(alvo && alvo.closest && (alvo.closest('#editor') || alvo.closest('#hud')
+    || alvo.closest('#confirma') || alvo.closest('#ajustes')));
+}
+
+stage.addEventListener('pointerdown', ev => {
+  if (editing || noHud(ev)) return;
+  ev.preventDefault();
+  const no = ev.target && ev.target.closest ? ev.target.closest('.node') : null;
+  let a = no ? acharPorId(no.dataset.id) : null;
+  if (!a) a = acharAlvo(ev.clientX, ev.clientY, FOLGA);
+  if (!a) a = stickDaZona(ev.clientX, ev.clientY);
+  const t = { x0: ev.clientX, y0: ev.clientY, alvo: a, dir: [] };
+  toques[ev.pointerId] = t;
+  try { stage.setPointerCapture(ev.pointerId); } catch (e) {}
+  if (a) apertar(t, ev.clientX, ev.clientY);
+});
+
+stage.addEventListener('pointermove', ev => {
+  if (editing) return;
+  const t = toques[ev.pointerId];
+  if (!t) return;
+  ev.preventDefault();
+  const a = t.alvo;
+
+  // dedo caiu no vazio e escorregou pra um controle: aperta
+  if (!a) {
+    if (Math.hypot(ev.clientX - t.x0, ev.clientY - t.y0) < 8) return;
+    const n = acharAlvo(ev.clientX, ev.clientY, 1);
+    if (n && n.tipo !== 'macro' && n.tipo !== 'stick') {
+      t.alvo = n;
+      apertar(t, ev.clientX, ev.clientY);
+    }
+    return;
+  }
+
+  if (a.tipo === 'dpad') {
+    const dir = setorDpad(a, ev.clientX, ev.clientY);
+    if (dir.join() !== (t.dir || []).join()) {
+      t.dir = dir; aplicarSetor(a, dir); vibrar(5); push();
+    }
+    return;
+  }
+  if (a.tipo === 'stick') { moverStick(t, ev.clientX, ev.clientY); return; }
+
+  // botao ou macro: saiu de cima? solta. entrou num vizinho? passa o dedo pra ele.
+  if (aindaDentro(a, ev.clientX, ev.clientY, FOLGA + 0.13)) return;
+  const n = acharAlvo(ev.clientX, ev.clientY, 1);
+  const podeIr = n && n.tipo !== 'macro' && n.tipo !== 'stick';
+  soltarAlvo(t);
+  if (podeIr) { t.alvo = n; apertar(t, ev.clientX, ev.clientY); }
+});
+
+function fimDoToque(ev) {
+  const t = toques[ev.pointerId];
+  if (!t) return;
+  delete toques[ev.pointerId];
+  soltarAlvo(t);
+}
+stage.addEventListener('pointerup', fimDoToque);
+stage.addEventListener('pointercancel', fimDoToque);
+window.addEventListener('blur', () => {
+  for (const id in toques) { soltarAlvo(toques[id]); delete toques[id]; }
+});
+
+// engrenagem da barra do editor: ajustes do toque
+document.getElementById('bcfg').onclick = () => {
+  mostrarAjustes();
+  document.getElementById('ajustes').classList.add('aberto');
+};
+document.getElementById('aFixo').onclick = () => { ajustes.analogico = 'fixo'; salvarAjustes(); };
+document.getElementById('aDinamico').onclick = () => { ajustes.analogico = 'dinamico'; salvarAjustes(); };
+document.getElementById('aFechar').onclick = () => {
+  document.getElementById('ajustes').classList.remove('aberto');
+  aplicar();
+};
 
 // ---------------------------------------------------------------- editor
 const acharMacro = (id) => macros.find(m => m._id === id);

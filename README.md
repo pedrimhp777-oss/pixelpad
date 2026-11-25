@@ -125,6 +125,7 @@ do caminho do polegar:
 - **−** e **+** mudam o tamanho do botão selecionado
 - **👁** oculta o botão (útil pra tirar o que você nunca usa do caminho)
 - **↻** volta tudo pro lugar de fábrica
+- **⚙** ajustes do toque (analógico fixo ou dinâmico)
 - **✓** sai do editor
 
 Cada botão é independente: pode afastar o △ do ○, subir o analógico, encolher o
@@ -147,6 +148,34 @@ pra nada encostar na borda.
 
 > Quem já tinha um layout salvo antigo recebe o layout novo uma única vez na
 > versão 0.10.0 (`pixelpadLayoutV4`), porque o antigo tinha as setas sobrepostas.
+
+## Como o toque funciona
+
+O jeito que o dedo aperta é metade da sensação de jogar. O PixelPad usa as mesmas
+ideias dos ports de celular que rodam bem (o *Dragon Rage* do Tenkaichi 3 foi a
+referência):
+
+- **O direcional é uma peça só, em 8 setores.** Não precisa acertar a seta: o que
+  vale é o ângulo do dedo em relação ao centro do cruzamento. A **diagonal aperta
+  os dois botões com um dedo**, e rolar o dedo pelo direcional muda de direção na
+  hora — como num direcional de verdade. O miolo (20% do raio) não aperta nada, para
+  não sair diagonal sem querer.
+- **Cada dedo tem um dono.** O controle que o dedo apertou é dele até levantar. Dois
+  dedos podem ficar no mesmo botão sem briga: o botão só solta quando **o último**
+  sai — é o que acaba com botão preso.
+- **Escorregar troca de botão.** Se o dedo escorrega de um botão para outro (ou cai
+  no vazio e desliza para cima de um), o novo botão aperta na hora. Não precisa
+  levantar e apertar de novo no meio de um combo.
+- **Folga de 15%.** Cada botão aceita o toque até 15% maior do que ele é desenhado.
+- **Analógico com curva.** Os primeiros 12% do curso não mandam nada (o dedo parado
+  treme) e o tilt total chega em 75% do raio — dá para andar devagar *e* correr sem
+  arrastar o dedo até a borda.
+- **Analógico dinâmico (opcional, no ⚙).** Em vez de ficar fixo onde você colocou,
+  ele nasce onde o dedo tocou — na metade de baixo da tela, do lado dele — e o
+  centro acompanha o dedo, então virar para o outro lado é imediato. O padrão é
+  **fixo**.
+- **Vibração no dedo que desce**, não no que levanta: a resposta vem antes do
+  resultado.
 
 ## Macros (combos)
 
