@@ -87,24 +87,23 @@ No canto de cima fica o **⚡** — é por ele que se chega nas [macros](#macros
 
 ### De onde vieram as posições
 
-O layout padrão não é chute: saiu do código-fonte do [PPSSPP](https://github.com/hrydgard/ppsspp)
-(`UI/GamepadEmu.cpp`, função `InitPadLayout`, com `D_pad_Radius = 50`,
-`baseActionButtonSpacing = 60` e `scale = 1.15`):
+O layout de fábrica saiu da mesa de teste: foram ajustados botão por botão, no
+celular, até ficar confortável no polegar — e daí viraram o padrão de todo mundo.
+Ele começou como uma cópia do [PPSSPP](https://github.com/hrydgard/ppsspp)
+(`UI/GamepadEmu.cpp`, `InitPadLayout`) e foi sendo afinado: direcional maior,
+botões de face maiores, touchpad fora do centro, PS/SHARE/OPTIONS juntos embaixo.
 
-```
-D-pad .......... X = 2.5 * raio, Y = base - raio - 200 (sobe quando tem analógico)
-Analógico ...... mesma X do d-pad, Y = base - 80   ← "right below the D pad"
-Botões ......... X = largura - 2*espaçamento, Y = base - 2*espaçamento - 150
-Analógico dir. . mesma X dos botões, Y = base - 80
-Start/Select ... centro, embaixo
-```
+E são **dois** layouts de fábrica, um pra cada modo:
 
-Ou seja: **direcional em cima e analógico logo abaixo** — o contrário do que a
-maioria chuta ao montar um controle na tela, e é o que os emuladores fazem porque
-o polegar alcança o analógico sem soltar o celular.
+| | MENU (abre assim) | JOGO |
+|---|---|---|
+| Analógico | escondido | visível |
+| Direcional | embaixo à esquerda, maior | no meio-esquerda, pra não encostar no analógico |
+| Botões | canto inferior direito, maiores | idem, um pouco mais altos |
 
-Quando a marca esconde os analógicos (Nintendo clássico), o direcional e os botões
-descem — reproduzindo o mesmo ajuste que o PPSSPP faz ao ocultar o stick.
+Os dois estão em `src/game-page.mjs` (`DEF` e `DEF_JOGO`) e espelhados em
+`src/presets.mjs` (`ESTILOS.padrao.menu` / `.jogo`). Trocar de modo pela primeira
+vez já entrega o layout certo daquele modo, sem copiar o outro.
 
 > Os presets de tipo de jogo (luta, corrida, plataforma) saíram da tela na 0.8.0:
 > atrapalhavam mais do que ajudavam. O código deles continua em `src/presets.mjs`,

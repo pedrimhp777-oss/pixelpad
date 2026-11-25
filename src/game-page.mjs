@@ -181,14 +181,37 @@ for (const n of NOS) {
 const LKEY = 'padLayoutV3';
 const PERFIL_KEY = 'pixelpadPerfil';
 const MACROS_KEY = 'pixelpadMacros';
+// Layout de fabrica. Sao DOIS: o do modo MENU (sem analogico) e o do modo JOGO
+// (com analogico). Os numeros vem do aparelho do autor, arrumados botao por botao,
+// e valem pra todo celular. Ficam espelhados em src/presets.mjs (ESTILOS.padrao).
 const DEF = {
-  l1:{x:8,y:11,s:1}, l2:{x:8,y:25,s:1},
+  l1:{x:8,y:11,s:1}, l2:{x:8.1,y:25.8,s:1},
   r1:{x:92,y:11,s:1}, r2:{x:92,y:25,s:1},
-  du:{x:9,y:44,s:1}, dd:{x:9,y:67,s:1}, dl:{x:4.2,y:55.5,s:1}, dr:{x:13.8,y:55.5,s:1},
-  ls:{x:9,y:86,s:.8}, rs:{x:91,y:86,s:.8},
-  y:{x:91,y:41.5,s:1}, x:{x:87.5,y:52.5,s:1}, b:{x:94.5,y:52.5,s:1}, a:{x:91,y:63.5,s:1},
-  tp:{x:50,y:28,s:.9}, share:{x:50,y:92,s:.8}, options:{x:58,y:92,s:.8}, ps:{x:50,y:80,s:.8},
+  du:{x:12.6,y:61.7,s:1.2}, dd:{x:12.6,y:89.3,s:1.2}, dl:{x:6.8,y:75.4,s:1.2}, dr:{x:18.4,y:75.4,s:1.2},
+  ls:{x:29.3,y:49.4,s:.8}, rs:{x:71.4,y:46.3,s:.8},
+  y:{x:87.4,y:58,s:1.6}, x:{x:80.5,y:71.9,s:1.5}, b:{x:94.2,y:73,s:1.5}, a:{x:87.2,y:87,s:1.5},
+  tp:{x:73.9,y:11.8,s:.9}, share:{x:40.2,y:92.2,s:.8}, options:{x:55.7,y:91.2,s:.8}, ps:{x:48.4,y:88.3,s:.8},
 };
+const DEF_JOGO = {
+  l1:{x:8.1,y:10.8,s:1}, l2:{x:8,y:25,s:1},
+  r1:{x:92,y:11,s:1}, r2:{x:92,y:25,s:1},
+  du:{x:25.5,y:31.8,s:1.1}, dd:{x:25.5,y:57.1,s:1.1}, dl:{x:20.2,y:44.4,s:1.1}, dr:{x:30.8,y:44.4,s:1.1},
+  ls:{x:11.9,y:81.2,s:1.1}, rs:{x:67.4,y:44.1,s:.8},
+  y:{x:85.6,y:57.7,s:1.5}, x:{x:79.2,y:71.4,s:1.5}, b:{x:93.5,y:70.5,s:1.5}, a:{x:86,y:87.2,s:1.6},
+  tp:{x:76.4,y:13,s:.9}, share:{x:42,y:91.1,s:.8}, options:{x:57.6,y:90.7,s:.8}, ps:{x:50.2,y:87.4,s:.8},
+};
+
+/** Monta o layout de fabrica do modo pedido (no MENU o analogico nao existe). */
+function nosDoModo(modo) {
+  const base = modo === 'jogo' ? DEF_JOGO : DEF;
+  const nodes = {};
+  for (const id in DEF) {
+    const B = base[id] || DEF[id];
+    nodes[id] = { x: B.x, y: B.y, s: B.s || 1, hid: false };
+  }
+  if (modo === 'menu') for (const id of ['ls', 'rs']) nodes[id].hid = true;
+  return nodes;
+}
 // grupos do layout antigo (v1) -> filhos, pra nao perder o que ja foi ajustado
 const V1 = {
   lsh:['l2','l1'], rsh:['r1','r2'], abxy:['y','x','b','a'], dpad:['du','dl','dr','dd'],
@@ -196,7 +219,7 @@ const V1 = {
 };
 
 let dados = carregar();
-const MIGRA_KEY = 'pixelpadLayoutV7';
+const MIGRA_KEY = 'pixelpadLayoutV8';
 
 function migrarLayout() {
   // 0.10.0 deixou os botoes maiores: o layout salvo da versao anterior ficaria
@@ -204,7 +227,8 @@ function migrarLayout() {
   try { if (localStorage.getItem(MIGRA_KEY)) return; } catch (e) { return; }
   const estilo = dados.estilo && ESTILOS[dados.estilo] ? dados.estilo : 'padrao';
   const velhos = dados.nodes || {};
-  dados.nodes = montarPreset(dados.marca || 'ps', estilo);
+  dados.nodes = estilo === 'padrao' ? nosDoModo(dados.modo)
+    : montarPreset(dados.marca || 'ps', estilo, dados.modo);
   // as macros ficam no mesmo layout: elas mantem o lugar onde estavam
   for (const id in velhos) if (id.charAt(0) === 'k') dados.nodes[id] = velhos[id];
   if (dados.modo === 'menu') {
@@ -218,7 +242,9 @@ function migrarLayout() {
     const g = JSON.parse(localStorage.getItem(LKEY + ':' + outro));
     if (g && g.nodes) {
       const antigos = g.nodes;
-      g.nodes = montarPreset(g.marca || dados.marca || 'ps', g.estilo || estilo);
+      const est = (g.estilo && ESTILOS[g.estilo]) ? g.estilo : estilo;
+      g.nodes = (est === 'padrao') ? nosDoModo(outro)
+        : montarPreset(g.marca || dados.marca || 'ps', est, outro);
       for (const id in antigos) if (id.charAt(0) === 'k') g.nodes[id] = antigos[id];
       g.modo = outro;
       delete g.macros;
@@ -281,29 +307,23 @@ function carregar() {
     for (const id of ['ls', 'rs']) if (nodes[id]) nodes[id].hid = true;
     return { nodes, marca: 'ps', estilo: 'meu', modo: 'menu' };
   }
-  const nodes = {};
-  for (const id in DEF) nodes[id] = Object.assign({}, DEF[id], { hid: false });
-  for (const id of ['ls', 'rs']) if (nodes[id]) nodes[id].hid = true;
-  return { nodes, marca: 'ps', estilo: 'meu', modo: 'menu' };
+  return { nodes: nosDoModo('menu'), marca: 'ps', estilo: 'padrao', modo: 'menu', perfil: 'ps:padrao' };
 }
 
 /** Monta as posicoes de um preset e marca o que a marca esconde. */
-function montarPreset(marca, estilo) {
+function montarPreset(marca, estilo, modo) {
   const M = MARCAS[marca] || MARCAS.ps;
   const E = ESTILOS[estilo] || ESTILOS.padrao;
+  const mapa = (modo && E[modo]) ? E[modo] : E.nodes;
+  const base = (modo === 'jogo') ? DEF_JOGO : DEF;
   const nodes = {};
-  for (const id in DEF) nodes[id] = { x: DEF[id].x, y: DEF[id].y, s: 1, hid: true };
-  for (const id in E.nodes) {
+  for (const id in DEF) nodes[id] = { x: base[id].x, y: base[id].y, s: base[id].s || 1, hid: true };
+  for (const id in mapa) {
     if (!nodes[id]) continue;
-    const v = E.nodes[id];
+    const v = mapa[id];
     nodes[id] = { x: v[0], y: v[1], s: v[2], hid: false };
   }
   for (const id of M.ocultar) if (nodes[id]) nodes[id].hid = true;
-  if (nodes.ls && nodes.ls.hid && nodes.rs && nodes.rs.hid) {
-    for (const id of ['du', 'dd', 'dl', 'dr', 'y', 'x', 'b', 'a']) {
-      if (nodes[id] && !nodes[id].hid) nodes[id].y = Math.min(92, nodes[id].y + 18);
-    }
-  }
   return nodes;
 }
 
@@ -314,7 +334,8 @@ function refazerModo(modo, marca, estilo) {
     const g = JSON.parse(localStorage.getItem(chave));
     if (!g || !g.nodes) return;
     const antigos = g.nodes;
-    g.nodes = montarPreset(marca || g.marca || 'ps', estilo || g.estilo || 'padrao');
+    const est = (estilo && ESTILOS[estilo]) ? estilo : ((g.estilo && ESTILOS[g.estilo]) ? g.estilo : 'padrao');
+    g.nodes = (est === 'padrao') ? nosDoModo(modo) : montarPreset(marca || g.marca || 'ps', est, modo);
     for (const id in antigos) if (id.charAt(0) === 'k') g.nodes[id] = antigos[id];
     g.modo = modo;
     g.marca = marca || g.marca || 'ps';
@@ -350,7 +371,7 @@ function sincronizarPerfil() {
   dados.perfil = alvo;
   if (atual === alvo) { salvar(); return; }
 
-  dados.nodes = montarPreset(p.marca, estilo);
+  dados.nodes = (estilo === 'padrao') ? nosDoModo(dados.modo) : montarPreset(p.marca, estilo, dados.modo);
   dados.estilo = estilo;
   if (dados.modo === 'menu') {
     for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
@@ -676,9 +697,9 @@ document.getElementById('cCancelar').onclick = () => {
 
 document.getElementById('cAcao').onclick = () => {
   document.getElementById('confirma').classList.remove('aberto');
-  dados.nodes = {};
-  for (const id in DEF) dados.nodes[id] = Object.assign({}, DEF[id], { hid: false });
-  if (dados.modo === 'menu') for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
+  dados.nodes = (dados.estilo && dados.estilo !== 'padrao')
+    ? montarPreset(dados.marca || 'ps', dados.estilo, dados.modo)
+    : nosDoModo(dados.modo);
   selected = null;
   sincronizarMacros();
   salvar(); aplicarMarca(); aplicar();
@@ -726,9 +747,14 @@ function alternarModo() {
     try { dados = JSON.parse(guardado); } catch (e) { dados.modo = novo; }
     dados.modo = novo;
   } else {
-    // primeira vez neste modo: copia o atual e esconde/mostra o analogico
+    // primeira vez neste modo: entra o layout de fabrica dele (menu e jogo tem cada um o seu)
+    const perfilSalvo = dados.perfil, marcaSalva = dados.marca, estiloSalvo = dados.estilo;
     dados = JSON.parse(JSON.stringify(dados));
     dados.modo = novo;
+    dados.perfil = perfilSalvo; dados.marca = marcaSalva; dados.estilo = estiloSalvo;
+    dados.nodes = (estiloSalvo && estiloSalvo !== 'padrao')
+      ? montarPreset(marcaSalva || 'ps', estiloSalvo, novo)
+      : nosDoModo(novo);
     for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = (novo === 'menu');
   }
   salvar();

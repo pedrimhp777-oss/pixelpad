@@ -60,17 +60,32 @@ export const ESTILOS = {
   padrao: {
     nome: 'Padrao',
     grad: ['#a1440a', '#ff8a1f'],
-    resumo: 'direcional em cima, analogico embaixo (padrao do PPSSPP)',
-    // Numeros vindos do PPSSPP (UI/GamepadEmu.cpp, InitPadLayout) convertidos
-    // para % com tela 1600x720: D_pad_Radius=50, spacing=60, scale=1.15.
-    // O direcional sobe quando o analogico aparece; o analogico fica logo abaixo.
+    resumo: 'direcional em cima, analogico embaixo',
+    // Layout padrao tem DUAS caras: com e sem analogico. Os numeros sairam do
+    // aparelho do autor (arrumados na mao, botao por botao) e valem pra todo mundo.
+    //   menu = sem analogico (aparece ao abrir o gamepad)
+    //   jogo = com analogico
+    // Formato: [x %, y %, escala]; quem nao aparece fica oculto.
+    menu: {
+      l1: [8, 11, 1], l2: [8.1, 25.8, 1], r1: [92, 11, 1], r2: [92, 25, 1],
+      du: [12.6, 61.7, 1.2], dd: [12.6, 89.3, 1.2], dl: [6.8, 75.4, 1.2], dr: [18.4, 75.4, 1.2],
+      ls: [29.3, 49.4, 0.8], rs: [71.4, 46.3, 0.8],
+      y: [87.4, 58, 1.6], x: [80.5, 71.9, 1.5], b: [94.2, 73, 1.5], a: [87.2, 87, 1.5],
+      tp: [73.9, 11.8, 0.9], share: [40.2, 92.2, 0.8], options: [55.7, 91.2, 0.8], ps: [48.4, 88.3, 0.8],
+    },
+    jogo: {
+      l1: [8.1, 10.8, 1], l2: [8, 25, 1], r1: [92, 11, 1], r2: [92, 25, 1],
+      du: [25.5, 31.8, 1.1], dd: [25.5, 57.1, 1.1], dl: [20.2, 44.4, 1.1], dr: [30.8, 44.4, 1.1],
+      ls: [11.9, 81.2, 1.1], rs: [67.4, 44.1, 0.8],
+      y: [85.6, 57.7, 1.5], x: [79.2, 71.4, 1.5], b: [93.5, 70.5, 1.5], a: [86, 87.2, 1.6],
+      tp: [76.4, 13, 0.9], share: [42, 91.1, 0.8], options: [57.6, 90.7, 0.8], ps: [50.2, 87.4, 0.8],
+    },
     nodes: {
-      l1: [8, 11, 1], l2: [8, 25, 1], r1: [92, 11, 1], r2: [92, 25, 1],
-      du: [9, 44, 1], dd: [9, 67, 1], dl: [4.2, 55.5, 1], dr: [13.8, 55.5, 1],
-      ls: [9, 86, 0.8],
-      y: [91, 41.5, 1], x: [87.5, 52.5, 1], b: [94.5, 52.5, 1], a: [91, 63.5, 1],
-      rs: [91, 86, 0.8],
-      tp: [50, 28, 0.9], share: [50, 92, 0.8], options: [58, 92, 0.8], ps: [50, 80, 0.8],
+      l1: [8.1, 10.8, 1], l2: [8, 25, 1], r1: [92, 11, 1], r2: [92, 25, 1],
+      du: [25.5, 31.8, 1.1], dd: [25.5, 57.1, 1.1], dl: [20.2, 44.4, 1.1], dr: [30.8, 44.4, 1.1],
+      ls: [11.9, 81.2, 1.1], rs: [67.4, 44.1, 0.8],
+      y: [85.6, 57.7, 1.5], x: [79.2, 71.4, 1.5], b: [93.5, 70.5, 1.5], a: [86, 87.2, 1.6],
+      tp: [76.4, 13, 0.9], share: [42, 91.1, 0.8], options: [57.6, 90.7, 0.8], ps: [50.2, 87.4, 0.8],
     },
   },
   luta: {
@@ -109,24 +124,20 @@ export const ESTILOS = {
 };
 
 /** Constroi os nodes de um preset: posicao do estilo + simbolos da marca. */
-export function montarNodes(marca, estilo, baseIds) {
+export function montarNodes(marca, estilo, baseIds, modo) {
   const M = MARCAS[marca] || MARCAS.ps;
   const E = ESTILOS[estilo] || ESTILOS.padrao;
+  const mapa = (modo && E[modo]) ? E[modo] : E.nodes;
   const nodes = {};
   for (const id of baseIds) nodes[id] = { x: 50, y: 50, s: 1, hid: true };
-  for (const id in E.nodes) {
+  for (const id in mapa) {
     if (!nodes[id]) continue;
-    const v = E.nodes[id];
+    const v = mapa[id];
     nodes[id] = { x: v[0], y: v[1], s: v[2], hid: false };
   }
   for (const id of M.ocultar) if (nodes[id]) nodes[id].hid = true;
   // sem analogico, direcional e botoes descem - e o que o PPSSPP faz quando
   // o stick esta oculto (D_pad_Y = screenBottom - raio, sem o -200 do stick)
-  if (nodes.ls && nodes.ls.hid && nodes.rs && nodes.rs.hid) {
-    for (const id of ['du', 'dd', 'dl', 'dr', 'y', 'x', 'b', 'a']) {
-      if (nodes[id] && !nodes[id].hid) nodes[id].y = Math.min(92, nodes[id].y + 18);
-    }
-  }
   return { nodes, marca: M, estilo: E };
 }
 /** Trecho de JS embutido nas paginas (dados puros, sem funcao). */
