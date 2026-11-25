@@ -8,7 +8,7 @@
 
 import { MARCAS, dadosJS } from './presets.mjs';
 
-export function startPage({ SVG, nome = '' }) {
+export function startPage({ SVG, nome = '', versao = '' }) {
   const nomeSeguro = String(nome).replace(/[<&"]/g, c => (c === '<' ? '&lt;' : c === '&' ? '&amp;' : '&quot;'));
   return String.raw`<!doctype html><html lang="pt-BR"><head>
 <meta charset="utf-8">
@@ -70,6 +70,11 @@ export function startPage({ SVG, nome = '' }) {
     font-size: 12px; padding: 13px 8px; border-radius: 12px; flex: 1; line-height: 1.2; }
   .rodape button:active { background: #1b222c; }
 
+  #versao { margin: 9px 0 0; text-align: center; font-size: 10.5px; color: #4d5563;
+    letter-spacing: .3px; }
+  #versao.velho { color: #ffb454; background: rgba(255,180,84,.08); border: 1px solid rgba(255,180,84,.25);
+    border-radius: 10px; padding: 8px 10px; font-size: 11.5px; line-height: 1.35; }
+
   @media (max-height: 660px) {
     .wrap { padding: 14px 14px 12px; }
     .topo { margin-bottom: 4px; gap: 10px; }
@@ -86,6 +91,7 @@ export function startPage({ SVG, nome = '' }) {
     .sim i svg { width: 12px; height: 12px; }
     .rodape { margin-top: 12px; }
     .rodape button { padding: 11px 8px; font-size: 11.5px; }
+    #versao { margin-top: 7px; font-size: 10px; }
   }
 </style></head><body>
 <div class="wrap">
@@ -105,12 +111,14 @@ export function startPage({ SVG, nome = '' }) {
     <button id="meu">meu layout atual</button>
     <button id="trocar">trocar de PC</button>
   </div>
+  <p id="versao"></p>
 </div>
 <script>
 const SVGS = ` + JSON.stringify(SVG) + `;
 ` + dadosJS() + `
 
 const CHAVE = 'pixelpadPerfil';
+const VERSAO_PC = "${versao}";
 const qs = location.search || '';
 let perfil = { marca: 'ps', estilo: 'padrao' };
 try {
@@ -176,6 +184,44 @@ document.getElementById('macros').onclick = function () {
 };
 
 desenhar();
+
+// ---------------------------------------------------------------- versao
+// A pagina vem sempre do PC (entao o visual se atualiza sozinho), mas o APK
+// e instalado a mao e NAO se atualiza sozinho. Aqui a gente compara os dois e
+// avisa quando o app do celular ficou pra tras.
+function numeros(v) {
+  return String(v || '').split('.').map(function (n) { return parseInt(n, 10) || 0; });
+}
+function maisNovo(a, b) {            // true se a > b
+  const x = numeros(a), y = numeros(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const p = x[i] || 0, q = y[i] || 0;
+    if (p !== q) return p > q;
+  }
+  return false;
+}
+
+(function () {
+  const el = document.getElementById('versao');
+  let app = null;
+  try { if (window.PixelPad && PixelPad.versao) app = PixelPad.versao(); } catch (e) {}
+  const noApp = !!app && app !== '?' && app !== 'null' && app !== '';
+  if (!noApp) {
+    // navegador (sem app instalado): so mostra a versao do PC
+    if (VERSAO_PC) el.textContent = 'PixelPad v' + VERSAO_PC;
+    return;
+  }
+  if (maisNovo(VERSAO_PC, app)) {
+    el.className = 'velho';
+    el.innerHTML = '&#9888; App desatualizado (v' + app + ') &middot; o PC est&aacute; na v' +
+      VERSAO_PC + '<br><b>toque aqui pra atualizar</b>';
+    el.onclick = function () {
+      if (window.PixelPad && PixelPad.abrir) PixelPad.abrir(location.origin + '/android');
+    };
+  } else {
+    el.textContent = 'app v' + app + '  ·  PC v' + VERSAO_PC;
+  }
+})();
 
 // esta tela e sempre em pe
 if (window.PixelPad && PixelPad.tela) { try { PixelPad.tela('retrato'); } catch (e) {} }

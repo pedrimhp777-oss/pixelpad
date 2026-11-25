@@ -196,17 +196,37 @@ const V1 = {
 };
 
 let dados = carregar();
-const MIGRA_KEY = 'pixelpadLayoutV4';
+const MIGRA_KEY = 'pixelpadLayoutV5';
 
 function migrarLayout() {
   // 0.10.0 deixou os botoes maiores: o layout salvo da versao anterior ficaria
   // com os botoes encostando, entao ele e refeito uma vez a partir do preset.
   try { if (localStorage.getItem(MIGRA_KEY)) return; } catch (e) { return; }
   const estilo = dados.estilo && ESTILOS[dados.estilo] ? dados.estilo : 'padrao';
+  const velhos = dados.nodes || {};
   dados.nodes = montarPreset(dados.marca || 'ps', estilo);
+  // as macros ficam no mesmo layout: elas mantem o lugar onde estavam
+  for (const id in velhos) if (id.charAt(0) === 'k') dados.nodes[id] = velhos[id];
   if (dados.modo === 'menu') {
     for (const id of ['ls', 'rs']) if (dados.nodes[id]) dados.nodes[id].hid = true;
   }
+
+  // o outro modo (menu/jogo) tambem tem layout salvo proprio e ficaria com os
+  // botoes grandes por cima dos antigos - refaz ele junto
+  const outro = dados.modo === 'menu' ? 'jogo' : 'menu';
+  try {
+    const g = JSON.parse(localStorage.getItem(LKEY + ':' + outro));
+    if (g && g.nodes) {
+      const antigos = g.nodes;
+      g.nodes = montarPreset(g.marca || dados.marca || 'ps', g.estilo || estilo);
+      for (const id in antigos) if (id.charAt(0) === 'k') g.nodes[id] = antigos[id];
+      g.modo = outro;
+      delete g.macros;
+      for (const id of ['ls', 'rs']) if (g.nodes[id]) g.nodes[id].hid = (outro === 'menu');
+      localStorage.setItem(LKEY + ':' + outro, JSON.stringify(g));
+    }
+  } catch (e) {}
+
   try { localStorage.setItem(MIGRA_KEY, '1'); } catch (e) {}
   salvar();
 }
@@ -327,6 +347,12 @@ function salvar() {
   } catch (e) {}
 }
 
+/** No modo MENU o analogico nao existe na tela; no editor ele fica so translucido. */
+function escondido(id, L) {
+  if (dados.modo === 'menu' && (id === 'ls' || id === 'rs')) return true;
+  return !!L.hid;
+}
+
 function aplicar() {
   for (const id in DEF) {
     const el = document.getElementById(id); if (!el) continue;
@@ -335,10 +361,10 @@ function aplicar() {
     el.style.left = L.x + '%';
     el.style.top = L.y + '%';
     el.style.transform = 'translate(-50%,-50%) scale(' + (L.s || 1) + ')';
-    el.classList.toggle('hid', !!L.hid);
+    el.classList.toggle('hid', escondido(id, L));
     el.classList.toggle('sel', editing && selecionados.indexOf(id) >= 0);
   }
-  for (const m of macros) {
+  macros.forEach((m, iMacro) => {
     const id = m._id;
     let el = document.getElementById(id);
     if (!el) {
@@ -353,13 +379,13 @@ function aplicar() {
     const rot = m.icone || '\u26A1';
     el.classList.remove('txt');
     if (el.textContent !== rot) el.textContent = rot;
-    const L = dados.nodes[id] || { x: 30, y: 62, s: 1 };
+    const L = dados.nodes[id] || { x: 30, y: 58 + Math.min(iMacro, 3) * 13, s: 1 };
     el.style.left = L.x + '%';
     el.style.top = L.y + '%';
     el.style.transform = 'translate(-50%,-50%) scale(' + (L.s || 1) + ')';
     el.classList.toggle('hid', !!L.hid);
     el.classList.toggle('sel', editing && selecionados.indexOf(id) >= 0);
-  }
+  });
 }
 
 // ---------------------------------------------------------------- conexao

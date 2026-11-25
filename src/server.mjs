@@ -345,7 +345,7 @@ const SVG = {
 };
 
 const GAME_PAGE = gamePage({ CSS, SVG });
-const START_PAGE = () => startPage({ SVG, nome: NOME });
+const START_PAGE = () => startPage({ SVG, nome: NOME, versao: VERSAO });
 const MACROS_PAGE = () => macrosPage({ SVG, nome: NOME });
 
 const MANIFEST = JSON.stringify({

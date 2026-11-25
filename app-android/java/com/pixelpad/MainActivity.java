@@ -1,9 +1,11 @@
 package com.pixelpad;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
+import android.net.Uri;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -87,6 +89,9 @@ public class MainActivity extends Activity {
         getWindow().setAttributes(attrs);
 
         prefs = getSharedPreferences("pixelpad", MODE_PRIVATE);
+        // o app abre sempre em pe: o manifest tambem e "portrait", porque em
+        // Android 12+ pedir a orientacao no onCreate pode ser ignorado e a janela
+        // nasce na orientacao do manifest (era o que deixava o A25 deitado)
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         web = new WebView(this);
@@ -415,6 +420,33 @@ public class MainActivity extends Activity {
 
     /** Ponte usada pela pagina: mudar orientacao e voltar pra lista de PCs. */
     private class Ponte {
+        /** Versao instalada deste app (lida do proprio APK), ex.: "0.11.0". */
+        @JavascriptInterface
+        public String versao() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (Exception e) {
+                return "?";
+            }
+        }
+
+        /** Abre um link no navegador do celular (usado pra baixar o APK novo). */
+        @JavascriptInterface
+        public void abrir(final String url) {
+            if (url == null || !url.startsWith("http")) return;
+            ui.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (Exception e) {
+                        status.setTextColor(0xFFFFB4B4);
+                        status.setText("Nao consegui abrir o navegador");
+                    }
+                }
+            });
+        }
+
         @JavascriptInterface
         public void tela(final String modo) {
             if (modo == null) return;

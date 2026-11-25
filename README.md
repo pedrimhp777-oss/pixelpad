@@ -207,6 +207,26 @@ Também está nos Releases como `PixelPad-x.y.z.apk` (20 KB). Requer Android 5.0
 > chave de loja. Por isso o Android mostra o aviso de fonte desconhecida — normal
 > para app fora da Play Store. Instalar versão nova é só instalar por cima.
 
+## Atualizar (e por que o app do celular não se atualiza sozinho)
+
+O PixelPad tem duas partes e elas se atualizam de jeitos diferentes:
+
+- **as telas** (controle, editor, macros, tela inicial) vêm do PC a cada abertura.
+  Atualizou o PixelPad no computador, o celular já abre na versão nova. Nada a fazer.
+- **o app do celular** (o APK) é instalado à mão, então **não se atualiza sozinho** —
+  não tem Play Store no meio. Quando sai uma versão nova, instale o APK de novo
+  por cima (não precisa desinstalar; o layout e as macros continuam lá).
+
+Pra ninguém ficar perdido, a tela inicial mostra no rodapé a versão do app e a do PC
+(`app v0.11.0 · PC v0.11.0`). Se o app do celular estiver mais velho que o PC, o
+rodapé vira um aviso laranja **"App desatualizado"** que, tocado, abre o navegador
+no endereço do APK novo.
+
+```bash
+# no celular, com o PixelPad aberto no PC
+http://<ip-do-pc>:8080/android
+```
+
 ## Requisitos
 
 - **Windows 10/11** (o controle virtual usa XInput)
